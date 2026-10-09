@@ -52,7 +52,7 @@ class AnalysisView extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               TextButton(
-                onPressed: () => context.go('/'),
+                onPressed: () => context.go('/home'),
                 child: const Text('Volver al inicio'),
               ),
             ],

@@ -6,5 +6,5 @@ class AppConfig {
       '$apiBaseUrl$apiPrefix/analyze';
 
   static const String healthEndpoint =
-      '$apiBaseUrl/health';
+      '$apiBaseUrl$apiPrefix/health';
 }
