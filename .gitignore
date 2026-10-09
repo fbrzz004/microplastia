@@ -1,46 +1,63 @@
+# =========================
 # Flutter / Dart
-.dart_tool/
-.packages
-.pub/
-build/
-.flutter-plugins
-.flutter-plugins-dependencies
+# =========================
+mobile/.dart_tool/
+mobile/build/
+mobile/.flutter-plugins
+mobile/.flutter-plugins-dependencies
+mobile/.packages
+mobile/.pub/
+mobile/coverage/
 
-# Entornos de desarrollo
+# IDE y archivos temporales
 .idea/
 .vscode/
-
-# Archivos locales de Windows
+*.log
 .DS_Store
 Thumbs.db
-*.log
 
-# Python
+# =========================
+# Python / FastAPI
+# =========================
 __pycache__/
 *.py[cod]
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+.coverage
+htmlcov/
+
+# Entornos virtuales
 .venv/
 venv/
 env/
 
-# Variables de entorno y secretos
+# =========================
+# Variables de entorno
+# =========================
 .env
 .env.*
 !.env.example
 
-# Modelos y datasets
+# =========================
+# Datasets y modelos de IA
+# =========================
+datasets/
+data/raw/
 *.pt
 *.pth
 *.onnx
 *.h5
 *.tflite
-datasets/
-data/raw/
 
-# Archivos de configuración locales
-local.properties
+# =========================
+# Configuración local Android
+# =========================
+**/local.properties
 
-# Plataforma Windows de Flutter:
-/windows/
+# =========================
+# Windows desktop
+# Excluir solo si el equipo no desarrolla
+# una versión de escritorio para Windows
+# =========================
+/mobile/windows/
