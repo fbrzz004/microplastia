@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'home_view.dart';
+import 'package:go_router/go_router.dart';
 
 class LoginView extends StatelessWidget {
   const LoginView({super.key});
@@ -54,11 +54,8 @@ class LoginView extends StatelessWidget {
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   ),
                   onPressed: () {
+                    context.go('/home');
                     // Navegar a Home al hacer clic
-                    Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(builder: (context) => const HomeView()),
-                    );
                   },
                   child: const Text("Ingresar", style: TextStyle(fontSize: 16)),
                 ),

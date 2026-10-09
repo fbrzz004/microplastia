@@ -1,8 +1,19 @@
 import 'package:flutter/material.dart';
-import 'views/login_view.dart';
+import 'package:provider/provider.dart';
+import 'routes/app_router.dart';
+import 'viewmodels/analysis_viewmodel.dart';
 
 void main() {
-  runApp(const MicroplastIAApp());
+  runApp(
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(
+          create: (_) => AnalysisViewModel(),
+        ),
+      ],
+      child: const MicroplastIAApp(),
+    ),
+  );
 }
 
 class MicroplastIAApp extends StatelessWidget {
@@ -10,14 +21,16 @@ class MicroplastIAApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'MicroplastIA MVP',
+    return MaterialApp.router(
+      title: 'MicroplastIA',
       debugShowCheckedModeBanner: false,
+      routerConfig: appRouter,
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
         useMaterial3: true,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFF168C83),
+        ),
       ),
-      home: const LoginView(),
     );
   }
 }
