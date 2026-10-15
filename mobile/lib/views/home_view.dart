@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../services/auth_service.dart';
+
 class HomeView extends StatelessWidget {
   const HomeView({super.key});
 
@@ -14,8 +16,14 @@ class HomeView extends StatelessWidget {
           IconButton(
             icon: const Icon(Icons.logout),
             tooltip: 'Cerrar sesión',
-            onPressed: () {
-              context.go('/login');
+            onPressed: () async {
+              final authService = AuthService();
+
+              await authService.logout();
+
+              if (context.mounted) {
+                context.go('/login');
+              }
             },
           ),
         ],
@@ -32,6 +40,7 @@ class HomeView extends StatelessWidget {
                 fontWeight: FontWeight.bold,
               ),
             ),
+
             const SizedBox(height: 16),
 
             Container(
@@ -45,7 +54,9 @@ class HomeView extends StatelessWidget {
                 children: [
                   Text(
                     "Análisis realizados",
-                    style: TextStyle(color: Colors.white70),
+                    style: TextStyle(
+                      color: Colors.white70,
+                    ),
                   ),
                   SizedBox(height: 8),
                   Text(
@@ -58,13 +69,16 @@ class HomeView extends StatelessWidget {
                   ),
                   Text(
                     "Esta semana: 7",
-                    style: TextStyle(color: Colors.greenAccent),
+                    style: TextStyle(
+                      color: Colors.greenAccent,
+                    ),
                   ),
                 ],
               ),
             ),
 
             const SizedBox(height: 24),
+
             const Text(
               "Acciones rápidas",
               style: TextStyle(
@@ -72,6 +86,7 @@ class HomeView extends StatelessWidget {
                 fontWeight: FontWeight.bold,
               ),
             ),
+
             const SizedBox(height: 12),
 
             Row(
@@ -81,19 +96,19 @@ class HomeView extends StatelessWidget {
                   context,
                   Icons.camera_alt,
                   "Nueva muestra",
-                  () => context.go('/analysis'),
+                      () => context.go('/analysis'),
                 ),
                 _buildActionButton(
                   context,
                   Icons.history,
                   "Historial",
-                  () => context.go('/history'),
+                      () => context.go('/history'),
                 ),
                 _buildActionButton(
                   context,
                   Icons.description,
                   "Reportes",
-                  () {
+                      () {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
                         content: Text(
@@ -112,11 +127,11 @@ class HomeView extends StatelessWidget {
   }
 
   Widget _buildActionButton(
-    BuildContext context,
-    IconData icon,
-    String label,
-    VoidCallback onTap,
-  ) {
+      BuildContext context,
+      IconData icon,
+      String label,
+      VoidCallback onTap,
+      ) {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
@@ -131,12 +146,17 @@ class HomeView extends StatelessWidget {
                 color: Colors.blue.shade50,
                 shape: BoxShape.circle,
               ),
-              child: Icon(icon, color: Colors.blue),
+              child: Icon(
+                icon,
+                color: Colors.blue,
+              ),
             ),
             const SizedBox(height: 8),
             Text(
               label,
-              style: const TextStyle(fontSize: 12),
+              style: const TextStyle(
+                fontSize: 12,
+              ),
             ),
           ],
         ),

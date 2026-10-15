@@ -7,4 +7,10 @@ class AppConfig {
 
   static const String healthEndpoint =
       '$apiBaseUrl$apiPrefix/health';
+
+  static const String loginEndpoint =
+      '$apiBaseUrl$apiPrefix/auth/login';
+
+  static const String registerEndpoint =
+      '$apiBaseUrl$apiPrefix/auth/register';
 }
