@@ -1,16 +1,25 @@
+import 'package:flutter/foundation.dart';
+
 class AppConfig {
-  static const String apiBaseUrl = 'http://10.0.2.2:8000';
+  static String get apiBaseUrl {
+    if (kIsWeb) {
+      return 'http://127.0.0.1:8000';
+    }
+
+    return 'http://10.0.2.2:8000';
+  }
+
   static const String apiPrefix = '/api/v1';
 
-  static const String analyzeEndpoint =
+  static String get analyzeEndpoint =>
       '$apiBaseUrl$apiPrefix/analyze';
 
-  static const String healthEndpoint =
+  static String get healthEndpoint =>
       '$apiBaseUrl$apiPrefix/health';
 
-  static const String loginEndpoint =
+  static String get loginEndpoint =>
       '$apiBaseUrl$apiPrefix/auth/login';
 
-  static const String registerEndpoint =
+  static String get registerEndpoint =>
       '$apiBaseUrl$apiPrefix/auth/register';
 }
