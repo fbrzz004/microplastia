@@ -1,10 +1,7 @@
 import 'dart:convert';
-
 import 'package:http/http.dart' as http;
-
 import '../core/config/app_config.dart';
 import 'session_service.dart';
-
 
 class AuthService {
   Future<Map<String, dynamic>> login({
@@ -27,10 +24,16 @@ class AuthService {
       }),
     );
 
-    final data = jsonDecode(response.body);
+    final data = _decodeResponse(response.body);
 
     if (response.statusCode == 200) {
-      final token = data['access_token'] as String;
+      final token = data['access_token'];
+
+      if (token is! String || token.isEmpty) {
+        throw const FormatException(
+          'La respuesta del servidor no contiene un token válido.',
+        );
+      }
 
       await SessionService.saveToken(token);
 
@@ -42,7 +45,10 @@ class AuthService {
 
     return {
       'success': false,
-      'message': data['detail'] ?? 'Error al iniciar sesión',
+      'message': _getErrorMessage(
+        data,
+        'Error al iniciar sesión',
+      ),
     };
   }
 
@@ -70,7 +76,7 @@ class AuthService {
       }),
     );
 
-    final data = jsonDecode(response.body);
+    final data = _decodeResponse(response.body);
 
     if (response.statusCode == 201) {
       return {
@@ -81,7 +87,10 @@ class AuthService {
 
     return {
       'success': false,
-      'message': data['detail'] ?? 'Error al registrar usuario',
+      'message': _getErrorMessage(
+        data,
+        'Error al registrar usuario',
+      ),
     };
   }
 
@@ -91,5 +100,36 @@ class AuthService {
 
   Future<bool> isLoggedIn() async {
     return SessionService.hasToken();
+  }
+
+  Map<String, dynamic> _decodeResponse(String body) {
+    if (body.trim().isEmpty) {
+      throw const FormatException(
+        'El servidor devolvió una respuesta vacía.',
+      );
+    }
+
+    final decoded = jsonDecode(body);
+
+    if (decoded is! Map<String, dynamic>) {
+      throw const FormatException(
+        'El formato de respuesta del servidor no es válido.',
+      );
+    }
+
+    return decoded;
+  }
+
+  String _getErrorMessage(
+    Map<String, dynamic> data,
+    String defaultMessage,
+  ) {
+    final detail = data['detail'] ?? data['message'];
+
+    if (detail is String && detail.isNotEmpty) {
+      return detail;
+    }
+
+    return defaultMessage;
   }
 }
