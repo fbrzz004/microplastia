@@ -4,16 +4,16 @@ import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
 
-class AnalysisService {
-  static const String baseUrl = 'http://127.0.0.1:8000';
+import '../core/config/app_config.dart';
 
+class AnalysisService {
   Future<Map<String, dynamic>> analizarImagen({
     required Uint8List bytes,
     required String filename,
   }) async {
     final request = http.MultipartRequest(
       'POST',
-      Uri.parse('$baseUrl/api/v1/analyze'),
+      Uri.parse(AppConfig.analyzeEndpoint),
     );
 
     request.files.add(

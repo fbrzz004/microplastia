@@ -197,7 +197,7 @@ class _AnalysisViewState extends State<AnalysisView> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: azul,
                       foregroundColor: Colors.white,
-                      disabledBackgroundColor: azul.withOpacity(0.6),
+                      disabledBackgroundColor: azul.withValues(alpha: 0.6),
                       elevation: 0,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -343,8 +343,8 @@ class _IlustracionMicroscopio extends StatelessWidget {
           shape: BoxShape.circle,
           color: Color(0xFFDDE1D5),
         ),
-        child: Stack(
-          children: const [
+        child: const Stack(
+          children: [
             _Punto(x: 37, y: 35, color: Color(0xFF1680F5), size: 10),
             _Punto(x: 94, y: 28, color: Color(0xFF19AA82), size: 8),
             _Punto(x: 73, y: 60, color: Color(0xFFEF4C50), size: 7),
