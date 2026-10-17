@@ -1,21 +1,61 @@
-from fastapi import APIRouter
+import uuid
+
+from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+
+from app.schemas.analysis import AnalysisResponse
+from app.services.inference import InvalidImageError, inference_service
 
 router = APIRouter(tags=["Analysis"])
 
-@router.post("/analyze")
-async def analyze_sample():
-    # Mock temporal. Todavía no ejecuta YOLOv8n.
-    return {
-        "success": True,
-        "message": "Respuesta simulada de análisis",
-        "data": {
-            "sample_id": "Muestra #024",
-            "total_particles": 12,
-            "confidence": 0.92,
-            "breakdown": {
-                "fiber": 6,
-                "fragment": 4,
-                "dirt": 2
-            }
-        }
-    }
+MAX_UPLOAD_BYTES = 10 * 1024 * 1024  # 10 MB
+
+
+@router.post("/analyze", response_model=AnalysisResponse)
+async def analyze_sample(
+    file: UploadFile = File(..., description="Imagen microscópica en JPG/PNG"),
+    sample_id: str | None = Form(default=None, description="ID opcional de la muestra"),
+):
+    """
+    Procesa una imagen con YOLOv8n y devuelve la detección de microplásticos.
+    Acepta multipart/form-data con campo 'file' (imagen) y 'sample_id' opcional.
+    """
+    if not sample_id:
+        sample_id = f"MUESTRA-{uuid.uuid4().hex[:8].upper()}"
+
+    if file.content_type and not file.content_type.startswith("image/"):
+        raise HTTPException(
+            status_code=400,
+            detail="El archivo debe ser una imagen (JPG o PNG).",
+        )
+
+    image_bytes = await file.read()
+
+    if not image_bytes:
+        raise HTTPException(status_code=400, detail="El archivo está vacío.")
+
+    if len(image_bytes) > MAX_UPLOAD_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail="La imagen supera el tamaño máximo permitido (10 MB).",
+        )
+
+    try:
+        result = inference_service.predict(
+            image_bytes=image_bytes,
+            original_filename=file.filename or "sample.jpg",
+            sample_id=sample_id,
+        )
+    except InvalidImageError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    return AnalysisResponse(
+        success=True,
+        message=f"Análisis completado. Se detectaron {result.total_particles} partículas.",
+        data=result,
+    )
+
+
+@router.get("/results/{result_id}")
+async def get_result(result_id: str):
+    """Placeholder — historial persistido pendiente para Sprint 4."""
+    return {"success": True, "message": f"Resultado {result_id} (pendiente de persistencia)"}

@@ -9,3 +9,7 @@ passlib==1.7.4
 bcrypt==4.0.1
 python-jose[cryptography]
 email-validator
+ultralytics>=8.3.0
+opencv-python-headless>=4.10.0
+numpy>=1.26.0
+pillow>=10.0.0
