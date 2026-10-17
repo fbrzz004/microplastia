@@ -11,3 +11,9 @@ media/*
 weights/
 *.pt
 *.onnx
+# Archivos generados en tiempo de ejecución
+uploads/
+static/detections/
+datasets/
+runs/
+*.db

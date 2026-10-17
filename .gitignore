@@ -61,3 +61,5 @@ data/raw/
 # una versión de escritorio para Windows
 # =========================
 /mobile/windows/
+
+!backend/weights/best.pt
