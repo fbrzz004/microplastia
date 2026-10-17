@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 
-import '../services/auth_service.dart';
-
+import '../viewmodels/login_viewmodel.dart';
 
 class LoginView extends StatefulWidget {
   const LoginView({super.key});
@@ -11,61 +11,40 @@ class LoginView extends StatefulWidget {
   State<LoginView> createState() => _LoginViewState();
 }
 
-
 class _LoginViewState extends State<LoginView> {
   final _correoController = TextEditingController();
   final _passwordController = TextEditingController();
 
-  final _authService = AuthService();
-
-  bool _loading = false;
-  String? _error;
-
+  static const Color azul = Color(0xFF1976E9);
+  static const Color azulClaro = Color(0xFFE1F5FE);
+  static const Color azulBorde = Color(0xFFDCE6F1);
+  static const Color azulOscuro = Color(0xFF142F55);
+  static const Color grisTexto = Color(0xFF647895);
 
   Future<void> _login() async {
-    final correo = _correoController.text.trim();
-    final password = _passwordController.text.trim();
+    final viewModel = context.read<LoginViewModel>();
 
-    if (correo.isEmpty || password.isEmpty) {
-      setState(() {
-        _error = 'Completa todos los campos';
-      });
-      return;
-    }
+    final correcto = await viewModel.login(
+      correo: _correoController.text,
+      password: _passwordController.text,
+    );
 
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+    if (!mounted) return;
 
-    try {
-      final result = await _authService.login(
-        correo: correo,
-        password: password,
-      );
-
-      if (!mounted) return;
-
-      if (result['success'] == true) {
-        context.go('/home');
-      } else {
-        setState(() {
-          _error = result['message'] ?? 'Error al iniciar sesión';
-        });
-      }
-    } catch (e) {
-      setState(() {
-        _error = 'No se pudo conectar con el servidor';
-      });
-    } finally {
-      if (mounted) {
-        setState(() {
-          _loading = false;
-        });
-      }
+    if (correcto) {
+      context.go('/home');
     }
   }
 
+  void _recuperarContrasena() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'La recuperación de contraseña estará disponible próximamente.',
+        ),
+      ),
+    );
+  }
 
   @override
   void dispose() {
@@ -74,87 +53,305 @@ class _LoginViewState extends State<LoginView> {
     super.dispose();
   }
 
-
   @override
   Widget build(BuildContext context) {
+    final viewModel = context.watch<LoginViewModel>();
+
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text('MicroplastIA'),
+        toolbarHeight: 0,
+        elevation: 0,
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.white,
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Text(
-              'Iniciar sesión',
-              style: TextStyle(
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
+      body: SafeArea(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 24,
+                vertical: 16,
               ),
-            ),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight: constraints.maxHeight - 32,
+                ),
+                child: IntrinsicHeight(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const SizedBox(height: 50),
 
-            const SizedBox(height: 30),
+                      // Logo
+                      Center(
+                        child: Container(
+                          width: 60,
+                          height: 60,
+                          decoration: BoxDecoration(
+                            color: azulClaro,
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          alignment: Alignment.center,
+                          child: const Text(
+                            'μ',
+                            style: TextStyle(
+                              color: azul,
+                              fontSize: 38,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ),
 
-            TextField(
-              controller: _correoController,
-              keyboardType: TextInputType.emailAddress,
-              decoration: const InputDecoration(
-                labelText: 'Correo',
-                border: OutlineInputBorder(),
-              ),
-            ),
+                      const SizedBox(height: 22),
 
-            const SizedBox(height: 16),
+                      // Nombre de la aplicación
+                      const Text(
+                        'MicroplastIA',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: azulOscuro,
+                        ),
+                      ),
 
-            TextField(
-              controller: _passwordController,
-              obscureText: true,
-              decoration: const InputDecoration(
-                labelText: 'Contraseña',
-                border: OutlineInputBorder(),
-              ),
-            ),
+                      const SizedBox(height: 8),
 
-            const SizedBox(height: 16),
+                      const Text(
+                        'Detección inteligente de microplásticos',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: grisTexto,
+                        ),
+                      ),
 
-            if (_error != null)
-              Text(
-                _error!,
-                style: const TextStyle(
-                  color: Colors.red,
+                      const SizedBox(height: 34),
+
+                      // Correo
+                      const Text(
+                        'Correo institucional',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: grisTexto,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+
+                      const SizedBox(height: 5),
+
+                      TextField(
+                        controller: _correoController,
+                        keyboardType: TextInputType.emailAddress,
+                        textInputAction: TextInputAction.next,
+                        onChanged: (_) => viewModel.clearError(),
+                        decoration: InputDecoration(
+                          hintText: 'nombre@universidad.edu.pe',
+                          hintStyle: const TextStyle(
+                            color: grisTexto,
+                            fontSize: 12,
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 14,
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(
+                              color: azulBorde,
+                            ),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(
+                              color: azulBorde,
+                            ),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(
+                              color: azul,
+                              width: 1.5,
+                            ),
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(height: 12),
+
+                      // Contraseña
+                      const Text(
+                        'Contraseña',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: grisTexto,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+
+                      const SizedBox(height: 5),
+
+                      TextField(
+                        controller: _passwordController,
+                        obscureText: true,
+                        textInputAction: TextInputAction.done,
+                        onChanged: (_) => viewModel.clearError(),
+                        onSubmitted: (_) {
+                          if (!viewModel.isLoading) {
+                            _login();
+                          }
+                        },
+                        decoration: InputDecoration(
+                          hintText: '••••••••',
+                          hintStyle: const TextStyle(
+                            color: grisTexto,
+                            fontSize: 14,
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 14,
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(
+                              color: azulBorde,
+                            ),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(
+                              color: azulBorde,
+                            ),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(
+                              color: azul,
+                              width: 1.5,
+                            ),
+                          ),
+                        ),
+                      ),
+
+                      // Mensaje de error
+                      if (viewModel.errorMessage != null) ...[
+                        const SizedBox(height: 12),
+                        Text(
+                          viewModel.errorMessage!,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: Colors.red,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+
+                      const SizedBox(height: 10),
+
+                      // Recuperar contraseña
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: TextButton(
+                          onPressed: _recuperarContrasena,
+                          style: TextButton.styleFrom(
+                            foregroundColor: azul,
+                            padding: const EdgeInsets.symmetric(
+                              vertical: 8,
+                            ),
+                            alignment: Alignment.centerLeft,
+                          ),
+                          child: const Text(
+                            '¿Olvidaste tu contraseña?',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(height: 10),
+
+                      // Botón de inicio de sesión
+                      SizedBox(
+                        height: 43,
+                        child: ElevatedButton(
+                          onPressed:
+                              viewModel.isLoading ? null : _login,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: azul,
+                            disabledBackgroundColor:
+                                azul.withValues(alpha: 0.6),
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: viewModel.isLoading
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : const Text(
+                                  'Ingresar',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                        ),
+                      ),
+
+                      const SizedBox(height: 4),
+
+                      TextButton(
+                        onPressed: () {
+                          context.go('/register');
+                        },
+                        style: TextButton.styleFrom(
+                          foregroundColor: azulOscuro,
+                          padding: const EdgeInsets.symmetric(
+                            vertical: 8,
+                          ),
+                        ),
+                        child: const Text(
+                          '¿No tienes una cuenta? Regístrate',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+
+
+                      const Spacer(),
+
+                      const SizedBox(height: 35),
+
+                      // Pie de página
+                      const Text(
+                        'Proyecto académico · Taller de Construcción de Software Móvil',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: grisTexto,
+                          fontSize: 9,
+                        ),
+                      ),
+
+                      const SizedBox(height: 10),
+                    ],
+                  ),
                 ),
               ),
-
-            const SizedBox(height: 16),
-
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: _loading ? null : _login,
-                child: _loading
-                    ? const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                  ),
-                )
-                    : const Text('Ingresar'),
-              ),
-            ),
-
-            const SizedBox(height: 12),
-
-            TextButton(
-              onPressed: () {
-                context.go('/register');
-              },
-              child: const Text(
-                '¿No tienes cuenta? Regístrate',
-              ),
-            ),
-          ],
+            );
+          },
         ),
       ),
     );
