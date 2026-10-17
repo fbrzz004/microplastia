@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 
-import '../services/auth_service.dart';
-
+import '../viewmodels/register_viewmodel.dart';
 
 class RegisterView extends StatefulWidget {
   const RegisterView({super.key});
@@ -11,77 +11,109 @@ class RegisterView extends StatefulWidget {
   State<RegisterView> createState() => _RegisterViewState();
 }
 
-
 class _RegisterViewState extends State<RegisterView> {
   final _nombreController = TextEditingController();
   final _apellidoController = TextEditingController();
   final _correoController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _confirmarPasswordController = TextEditingController();
 
-  final _authService = AuthService();
+  static const Color azul = Color(0xFF1976E9);
+  static const Color azulClaro = Color(0xFFE1F5FE);
+  static const Color azulBorde = Color(0xFFDCE6F1);
+  static const Color azulOscuro = Color(0xFF142F55);
+  static const Color grisTexto = Color(0xFF647895);
 
-  bool _loading = false;
-  String? _error;
-
+  String? _errorConfirmacion;
 
   Future<void> _register() async {
-    final nombre = _nombreController.text.trim();
-    final apellido = _apellidoController.text.trim();
-    final correo = _correoController.text.trim();
-    final password = _passwordController.text.trim();
+    final viewModel = context.read<RegisterViewModel>();
 
-    if (nombre.isEmpty ||
-        correo.isEmpty ||
-        password.isEmpty) {
+    final password = _passwordController.text;
+    final confirmarPassword = _confirmarPasswordController.text;
+
+    if (password != confirmarPassword) {
       setState(() {
-        _error = 'Completa los campos obligatorios';
+        _errorConfirmacion = 'Las contraseñas no coinciden';
       });
       return;
     }
 
     setState(() {
-      _loading = true;
-      _error = null;
+      _errorConfirmacion = null;
     });
 
-    try {
-      final result = await _authService.register(
-        nombre: nombre,
-        apellido: apellido.isEmpty ? null : apellido,
-        correo: correo,
-        password: password,
+    final correcto = await viewModel.register(
+      nombre: _nombreController.text,
+      apellido: _apellidoController.text,
+      correo: _correoController.text,
+      password: password,
+    );
+
+    if (!mounted) return;
+
+    if (correcto) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Usuario registrado correctamente'),
+        ),
       );
 
-      if (!mounted) return;
-
-      if (result['success'] == true) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Usuario registrado correctamente',
-            ),
-          ),
-        );
-
-        context.go('/login');
-      } else {
-        setState(() {
-          _error = result['message'] ?? 'Error al registrar usuario';
-        });
-      }
-    } catch (e) {
-      setState(() {
-        _error = 'No se pudo conectar con el servidor';
-      });
-    } finally {
-      if (mounted) {
-        setState(() {
-          _loading = false;
-        });
-      }
+      context.go('/login');
     }
   }
 
+  InputDecoration _decoracionCampo({
+    required String label,
+    String? hint,
+    String? errorText,
+  }) {
+    return InputDecoration(
+      labelText: label,
+      hintText: hint,
+      errorText: errorText,
+      labelStyle: const TextStyle(
+        fontSize: 12,
+        color: grisTexto,
+      ),
+      hintStyle: const TextStyle(
+        fontSize: 12,
+        color: grisTexto,
+      ),
+      floatingLabelBehavior: FloatingLabelBehavior.never,
+      filled: false,
+      contentPadding: const EdgeInsets.symmetric(
+        horizontal: 14,
+        vertical: 14,
+      ),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: azulBorde),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: azulBorde),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(
+          color: azul,
+          width: 1.5,
+        ),
+      ),
+      errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: Colors.red),
+      ),
+      focusedErrorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(
+          color: Colors.red,
+          width: 1.5,
+        ),
+      ),
+    );
+  }
 
   @override
   void dispose() {
@@ -89,91 +121,268 @@ class _RegisterViewState extends State<RegisterView> {
     _apellidoController.dispose();
     _correoController.dispose();
     _passwordController.dispose();
+    _confirmarPasswordController.dispose();
     super.dispose();
   }
 
-
   @override
   Widget build(BuildContext context) {
+    final viewModel = context.watch<RegisterViewModel>();
+
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text('Registro'),
+        toolbarHeight: 0,
+        elevation: 0,
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.white,
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          children: [
-            TextField(
-              controller: _nombreController,
-              decoration: const InputDecoration(
-                labelText: 'Nombre *',
-                border: OutlineInputBorder(),
+      body: SafeArea(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 24,
+                vertical: 16,
               ),
-            ),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight: constraints.maxHeight - 32,
+                ),
+                child: IntrinsicHeight(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const SizedBox(height: 22),
 
-            const SizedBox(height: 16),
+                      // Logo MicroplastIA
+                      Center(
+                        child: Container(
+                          width: 62,
+                          height: 62,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: azulClaro,
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: const Text(
+                            'μ',
+                            style: TextStyle(
+                              color: azul,
+                              fontSize: 38,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ),
 
-            TextField(
-              controller: _apellidoController,
-              decoration: const InputDecoration(
-                labelText: 'Apellido',
-                border: OutlineInputBorder(),
-              ),
-            ),
+                      const SizedBox(height: 10),
 
-            const SizedBox(height: 16),
+                      // Título
+                      const Text(
+                        'Crear cuenta',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 25,
+                          fontWeight: FontWeight.bold,
+                          color: azulOscuro,
+                        ),
+                      ),
 
-            TextField(
-              controller: _correoController,
-              keyboardType: TextInputType.emailAddress,
-              decoration: const InputDecoration(
-                labelText: 'Correo *',
-                border: OutlineInputBorder(),
-              ),
-            ),
+                      const SizedBox(height: 8),
 
-            const SizedBox(height: 16),
+                      const Text(
+                        'Regístrate para comenzar a analizar muestras',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: grisTexto,
+                        ),
+                      ),
 
-            TextField(
-              controller: _passwordController,
-              obscureText: true,
-              decoration: const InputDecoration(
-                labelText: 'Contraseña *',
-                border: OutlineInputBorder(),
-              ),
-            ),
+                      const SizedBox(height: 10),
 
-            const SizedBox(height: 16),
+                      // Nombre
+                      TextField(
+                        controller: _nombreController,
+                        textCapitalization: TextCapitalization.words,
+                        textInputAction: TextInputAction.next,
+                        onChanged: (_) => viewModel.clearError(),
+                        decoration: _decoracionCampo(
+                          label: 'Nombre',
+                          hint: 'Tu nombre',
+                        ),
+                      ),
 
-            if (_error != null)
-              Text(
-                _error!,
-                style: const TextStyle(
-                  color: Colors.red,
+                      const SizedBox(height: 10),
+
+                      // Apellido
+                      TextField(
+                        controller: _apellidoController,
+                        textCapitalization: TextCapitalization.words,
+                        textInputAction: TextInputAction.next,
+                        onChanged: (_) => viewModel.clearError(),
+                        decoration: _decoracionCampo(
+                          label: 'Apellido',
+                          hint: 'Tu apellido',
+                        ),
+                      ),
+
+                      const SizedBox(height: 10),
+
+                      // Correo
+                      TextField(
+                        controller: _correoController,
+                        keyboardType: TextInputType.emailAddress,
+                        textInputAction: TextInputAction.next,
+                        onChanged: (_) => viewModel.clearError(),
+                        decoration: _decoracionCampo(
+                          label: 'Correo',
+                          hint: 'nombre@universidad.edu.pe',
+                        ),
+                      ),
+
+                      const SizedBox(height: 10),
+
+                      // Contraseña
+                      TextField(
+                        controller: _passwordController,
+                        obscureText: true,
+                        textInputAction: TextInputAction.next,
+                        onChanged: (_) {
+                          viewModel.clearError();
+                          if (_errorConfirmacion != null) {
+                            setState(() {
+                              _errorConfirmacion = null;
+                            });
+                          }
+                        },
+                        decoration: _decoracionCampo(
+                          label: 'Contraseña',
+                          hint: '••••••••',
+                        ),
+                      ),
+
+                      const SizedBox(height: 10),
+
+                      // Confirmar contraseña
+                      TextField(
+                        controller: _confirmarPasswordController,
+                        obscureText: true,
+                        textInputAction: TextInputAction.done,
+                        onChanged: (_) {
+                          if (_errorConfirmacion != null) {
+                            setState(() {
+                              _errorConfirmacion = null;
+                            });
+                          }
+                        },
+                        onSubmitted: (_) {
+                          if (!viewModel.isLoading) {
+                            _register();
+                          }
+                        },
+                        decoration: _decoracionCampo(
+                          label: 'Confirmar contraseña',
+                          hint: '••••••••',
+                          errorText: _errorConfirmacion,
+                        ),
+                      ),
+
+                      // Error del backend o de validación
+                      if (viewModel.errorMessage != null) ...[
+                        const SizedBox(height: 10),
+                        Text(
+                          viewModel.errorMessage!,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: Colors.red,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+
+                      const SizedBox(height: 10),
+
+                      // Botón Crear cuenta
+                      SizedBox(
+                        height: 44,
+                        child: ElevatedButton(
+                          onPressed: viewModel.isLoading
+                              ? null
+                              : _register,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: azul,
+                            foregroundColor: Colors.white,
+                            disabledBackgroundColor:
+                                azul.withValues(alpha: 0.6),
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: viewModel.isLoading
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : const Text(
+                                  'Crear cuenta',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                        ),
+                      ),
+
+                      const SizedBox(height: 2),
+
+                      // Volver al login
+                      TextButton(
+                        onPressed: () {
+                          context.go('/login');
+                        },
+                        style: TextButton.styleFrom(
+                          foregroundColor: azul,
+                          padding: const EdgeInsets.symmetric(
+                            vertical: 8,
+                          ),
+                        ),
+                        child: const Text(
+                          '¿Ya tienes cuenta? Inicia sesión',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+
+                      const Spacer(),
+
+                      const SizedBox(height: 24),
+
+                      // Pie de página
+                      const Text(
+                        'Proyecto académico · Taller de Construcción de Software Móvil',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: grisTexto,
+                          fontSize: 9,
+                        ),
+                      ),
+
+                      const SizedBox(height: 8),
+                    ],
+                  ),
                 ),
               ),
-
-            const SizedBox(height: 16),
-
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: _loading ? null : _register,
-                child: _loading
-                    ? const CircularProgressIndicator()
-                    : const Text('Registrarme'),
-              ),
-            ),
-
-            TextButton(
-              onPressed: () {
-                context.go('/login');
-              },
-              child: const Text(
-                'Ya tengo una cuenta',
-              ),
-            ),
-          ],
+            );
+          },
         ),
       ),
     );
