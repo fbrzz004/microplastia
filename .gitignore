@@ -62,4 +62,5 @@ data/raw/
 # =========================
 /mobile/windows/
 
-!backend/weights/best.pt
+# Salidas de herramientas que describen la estructura del proyecto
+gptree_output.txt
