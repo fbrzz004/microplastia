@@ -10,6 +10,7 @@ class DetectionItem(BaseModel):
 
 
 class AnalysisData(BaseModel):
+    result_id: Optional[int] = None
     sample_id: str
     total_particles: int
     confidence: float
