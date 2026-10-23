@@ -16,13 +16,21 @@ def save_analysis(
     filename: Optional[str],
     user_id: Optional[int],
 ) -> ResultadoAnalisis:
-    """Guarda la muestra y su resultado de inferencia."""
 
     muestra = Muestra(
-        codigo=result.sample_id,
-        nombre_archivo=filename,
         id_usuario=user_id,
+
+        # Usaremos descripción para conservar
+        # el identificador generado de la muestra
+        descripcion=result.sample_id,
+
+        estado="Analizada",
+
+        # Actualmente no se almacena físicamente
+        # la imagen original en una URL.
+        imagen_url=None,
     )
+
     db.add(muestra)
     db.flush()
 
@@ -31,12 +39,18 @@ def save_analysis(
         total_particulas=result.total_particles,
         confianza_promedio=result.confidence,
         desglose=dict(result.breakdown),
-        detecciones=[d.model_dump() for d in result.detections],
+        detecciones=[
+            d.model_dump()
+            for d in result.detections
+        ],
         tiempo_procesamiento_ms=result.processing_time_ms,
         imagen_anotada_url=result.annotated_image_url,
     )
+
     db.add(registro)
+
     db.commit()
+
     db.refresh(registro)
 
     return registro
@@ -49,27 +63,33 @@ def list_results(
     limit: int = 20,
     offset: int = 0,
 ) -> tuple[Sequence[ResultadoAnalisis], int]:
-    """Lista los análisis del usuario, del más reciente al más antiguo."""
 
     consulta = (
         db.query(ResultadoAnalisis)
         .join(ResultadoAnalisis.muestra)
-        .options(joinedload(ResultadoAnalisis.muestra))
-        .filter(Muestra.id_usuario == user_id)
+        .options(
+            joinedload(ResultadoAnalisis.muestra)
+        )
+        .filter(
+            Muestra.id_usuario == user_id
+        )
     )
 
     if query:
+
         patron = f"%{query.strip()}%"
+
         consulta = consulta.filter(
             or_(
-                Muestra.codigo.ilike(patron),
-                Muestra.nombre_archivo.ilike(patron),
+                Muestra.descripcion.ilike(patron)
             )
         )
 
     total = consulta.count()
+
     registros = (
-        consulta.order_by(
+        consulta
+        .order_by(
             ResultadoAnalisis.fecha_creacion.desc(),
             ResultadoAnalisis.id_resultado.desc(),
         )
@@ -86,12 +106,13 @@ def get_result(
     result_id: int,
     user_id: int,
 ) -> Optional[ResultadoAnalisis]:
-    """Devuelve un análisis solo si pertenece al usuario indicado."""
 
     return (
         db.query(ResultadoAnalisis)
         .join(ResultadoAnalisis.muestra)
-        .options(joinedload(ResultadoAnalisis.muestra))
+        .options(
+            joinedload(ResultadoAnalisis.muestra)
+        )
         .filter(
             ResultadoAnalisis.id_resultado == result_id,
             Muestra.id_usuario == user_id,
@@ -100,18 +121,36 @@ def get_result(
     )
 
 
-def _created_at(registro: ResultadoAnalisis) -> datetime:
-    fecha = registro.fecha_creacion or registro.muestra.fecha_creacion
+def _created_at(
+    registro: ResultadoAnalisis
+) -> datetime:
+
+    fecha = (
+        registro.fecha_creacion
+        or registro.muestra.fecha_registro
+    )
+
     return fecha
 
 
-def to_history_item(registro: ResultadoAnalisis) -> HistoryItem:
+def to_history_item(
+    registro: ResultadoAnalisis
+) -> HistoryItem:
+
     muestra = registro.muestra
+
+    sample_id = (
+        muestra.descripcion
+        or f"MUESTRA-{muestra.id_muestra}"
+    )
 
     return HistoryItem(
         id=registro.id_resultado,
-        sample_id=muestra.codigo,
-        filename=muestra.nombre_archivo,
+        sample_id=sample_id,
+
+        # La tabla real no tiene nombre_archivo
+        filename=None,
+
         created_at=_created_at(registro),
         total_particles=registro.total_particulas,
         confidence=registro.confianza_promedio,
@@ -119,15 +158,22 @@ def to_history_item(registro: ResultadoAnalisis) -> HistoryItem:
     )
 
 
-def to_history_detail(registro: ResultadoAnalisis) -> HistoryDetail:
+def to_history_detail(
+    registro: ResultadoAnalisis
+) -> HistoryDetail:
+
     detecciones = [
         DetectionItem.model_validate(deteccion)
-        for deteccion in (registro.detecciones or [])
+        for deteccion in (
+            registro.detecciones or []
+        )
     ]
 
     return HistoryDetail(
         **to_history_item(registro).model_dump(),
         breakdown=registro.desglose or {},
         detections=detecciones,
-        processing_time_ms=registro.tiempo_procesamiento_ms,
+        processing_time_ms=(
+            registro.tiempo_procesamiento_ms
+        ),
     )

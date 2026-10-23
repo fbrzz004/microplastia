@@ -1,0 +1,362 @@
+:host {
+  display: block;
+  width: 100%;
+}
+
+.usuarios-page {
+  width: 100%;
+  max-width: 1450px;
+}
+
+/* =========================
+   ENCABEZADO
+========================= */
+
+.page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+
+  gap: 24px;
+
+  margin-bottom: 28px;
+}
+
+.page-header h1 {
+  margin: 0;
+
+  color: #111825;
+
+  font-size: 28px;
+  font-weight: 700;
+}
+
+.page-header p {
+  margin: 8px 0 0;
+
+  color: #667085;
+
+  font-size: 13px;
+}
+
+.admin-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 9px 16px;
+
+  background: #ffffff;
+
+  border: 1px solid #dde5ef;
+  border-radius: 999px;
+
+  color: #0e284a;
+
+  font-size: 11px;
+  font-weight: 600;
+
+  box-shadow: 0 4px 12px rgba(14, 40, 74, 0.05);
+}
+
+/* =========================
+   TARJETA
+========================= */
+
+.usuarios-card {
+  width: 100%;
+
+  background: #ffffff;
+
+  border: 1px solid #e3e9f1;
+  border-radius: 18px;
+
+  overflow: hidden;
+
+  box-shadow: 0 8px 24px rgba(14, 40, 74, 0.04);
+}
+
+/* =========================
+   TOOLBAR
+========================= */
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  padding: 20px 22px;
+
+  border-bottom: 1px solid #edf1f5;
+}
+
+.search-box {
+  width: 100%;
+  max-width: 390px;
+  height: 42px;
+
+  display: flex;
+  align-items: center;
+
+  gap: 10px;
+
+  padding: 0 14px;
+
+  background: #f9fbfd;
+
+  border: 1px solid #dfe6ef;
+  border-radius: 11px;
+}
+
+.search-icon {
+  font-size: 13px;
+
+  opacity: 0.55;
+}
+
+.search-box input {
+  width: 100%;
+  height: 100%;
+
+  padding: 0;
+
+  background: transparent;
+
+  border: none;
+  outline: none;
+
+  color: #111825;
+
+  font-size: 12px;
+}
+
+.search-box input::placeholder {
+  color: #98a2b3;
+}
+
+/* =========================
+   TABLA
+========================= */
+
+.table-wrapper {
+  width: 100%;
+
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+
+  border-collapse: collapse;
+}
+
+thead {
+  background: #f7f9fc;
+}
+
+th {
+  padding: 14px 20px;
+
+  color: #667085;
+
+  text-align: left;
+
+  font-size: 10px;
+  font-weight: 600;
+
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+td {
+  padding: 17px 20px;
+
+  color: #344054;
+
+  border-top: 1px solid #edf1f5;
+
+  font-size: 12px;
+
+  vertical-align: middle;
+}
+
+tbody tr {
+  transition: background 0.15s ease;
+}
+
+tbody tr:hover {
+  background: #fbfcfe;
+}
+
+/* =========================
+   USUARIO
+========================= */
+
+.user-cell {
+  display: flex;
+  align-items: center;
+
+  gap: 12px;
+}
+
+.avatar {
+  flex-shrink: 0;
+
+  width: 38px;
+  height: 38px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  background: #eaf3ff;
+  color: #1871e4;
+
+  border-radius: 11px;
+
+  font-size: 13px;
+  font-weight: 700;
+
+  text-transform: uppercase;
+}
+
+.user-info strong {
+  display: block;
+
+  color: #111825;
+
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.user-info span {
+  display: block;
+
+  margin-top: 4px;
+
+  color: #98a2b3;
+
+  font-size: 9px;
+}
+
+.email-cell {
+  color: #475467;
+}
+
+/* =========================
+   ESTADOS
+========================= */
+
+.status-badge,
+.role-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 6px 10px;
+
+  border-radius: 999px;
+
+  font-size: 9px;
+  font-weight: 600;
+}
+
+.status-badge.active {
+  background: #e9f8ef;
+  color: #23824a;
+}
+
+.status-badge.inactive {
+  background: #fff0f0;
+  color: #c62828;
+}
+
+.role-badge {
+  background: #eef4ff;
+  color: #245fae;
+}
+
+.role-badge.admin {
+  background: #ece8ff;
+  color: #6546c7;
+}
+
+/* =========================
+   ESTADOS DE CARGA
+========================= */
+
+.state-message,
+.error-message,
+.empty-message {
+  padding: 32px;
+
+  text-align: center;
+
+  font-size: 12px;
+}
+
+.state-message {
+  color: #667085;
+}
+
+.error-message {
+  margin: 20px;
+
+  background: #fff3f3;
+  color: #c62828;
+
+  border: 1px solid #ffd6d6;
+  border-radius: 10px;
+}
+
+.empty-message {
+  color: #98a2b3;
+}
+
+/* =========================
+   RESPONSIVE
+========================= */
+
+@media (max-width: 900px) {
+
+  .page-header {
+    flex-direction: column;
+  }
+
+  .toolbar {
+    align-items: stretch;
+  }
+
+  .search-box {
+    max-width: none;
+  }
+
+}
+
+@media (max-width: 650px) {
+
+  .page-header h1 {
+    font-size: 24px;
+  }
+
+  th,
+  td {
+    padding: 14px;
+  }
+
+  .usuarios-card {
+    border-radius: 14px;
+  }
+
+}
+
+
+.activity-cell {
+  color: #475467;
+  font-size: 12px;
+}
+
+.no-activity {
+  color: #98a2b3;
+  font-size: 11px;
+}

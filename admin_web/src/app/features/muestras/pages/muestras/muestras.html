@@ -1,0 +1,215 @@
+<section class="muestras-page">
+
+  <div class="page-header">
+
+    <div>
+      <h1>Muestras analizadas</h1>
+
+      <p>
+        Consulta todas las muestras enviadas desde la aplicación móvil.
+      </p>
+    </div>
+
+    <div class="admin-badge">
+      Administrador
+    </div>
+
+  </div>
+
+
+  <div class="muestras-card">
+
+    <div class="toolbar">
+
+      <div class="search-box">
+
+        <span class="search-icon">
+          🔍
+        </span>
+
+        <input
+          type="text"
+          placeholder="Buscar por ID, usuario o fecha"
+        />
+
+      </div>
+
+      <select class="status-filter">
+        <option value="">
+          Todos los estados
+        </option>
+
+        <option value="Analizada">
+          Analizada
+        </option>
+
+        <option value="Pendiente">
+          Pendiente
+        </option>
+      </select>
+
+    </div>
+
+
+    @if (cargando) {
+
+      <div class="state-message">
+        Cargando muestras...
+      </div>
+
+    }
+
+
+    @if (error) {
+
+      <div class="error-message">
+        {{ error }}
+      </div>
+
+    }
+
+
+    @if (!cargando && !error) {
+
+      <div class="table-wrapper">
+
+        <table>
+
+          <thead>
+
+            <tr>
+              <th>Muestra</th>
+              <th>Usuario</th>
+              <th>Fecha</th>
+              <th>Resultado</th>
+              <th>Confianza</th>
+              <th>Estado</th>
+            </tr>
+
+          </thead>
+
+
+          <tbody>
+
+            @for (muestra of muestras; track muestra.id_muestra) {
+
+              <tr>
+
+                <td>
+                  <div class="sample-cell">
+
+                    <strong>
+                      {{ muestra.codigo }}
+                    </strong>
+
+                    <span>
+                      ID #{{ muestra.id_muestra }}
+                    </span>
+
+                  </div>
+                </td>
+
+
+                <td>
+
+                  <div class="user-cell">
+
+                    <strong>
+                      {{ muestra.usuario }}
+                    </strong>
+
+                    <span>
+                      {{ muestra.correo }}
+                    </span>
+
+                  </div>
+
+                </td>
+
+
+                <td class="date-cell">
+
+                  {{
+                    muestra.fecha
+                      | date:'dd/MM/yyyy, HH:mm'
+                  }}
+
+                </td>
+
+
+                <td>
+
+                  <span class="result-value">
+                    {{ muestra.total_particulas }}
+                    partículas
+                  </span>
+
+                </td>
+
+
+                <td>
+
+                  @if (muestra.estado === 'Analizada') {
+
+                    <span class="confidence-value">
+                      {{
+                        muestra.confianza_promedio
+                          * 100
+                          | number:'1.1-1'
+                      }}%
+                    </span>
+
+                  } @else {
+
+                    <span class="no-data">
+                      —
+                    </span>
+
+                  }
+
+                </td>
+
+
+                <td>
+
+                  <span
+                    class="status-badge"
+                    [class.analyzed]="muestra.estado === 'Analizada'"
+                    [class.pending]="muestra.estado !== 'Analizada'"
+                  >
+                    {{ muestra.estado }}
+                  </span>
+
+                </td>
+
+              </tr>
+
+            }
+
+
+            @if (muestras.length === 0) {
+
+              <tr>
+
+                <td
+                  colspan="6"
+                  class="empty-message"
+                >
+                  No hay muestras registradas.
+                </td>
+
+              </tr>
+
+            }
+
+          </tbody>
+
+        </table>
+
+      </div>
+
+    }
+
+  </div>
+
+</section>

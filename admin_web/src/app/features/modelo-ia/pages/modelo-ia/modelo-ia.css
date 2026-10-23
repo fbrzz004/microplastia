@@ -1,0 +1,119 @@
+:host {
+  display: block;
+  width: 100%;
+}
+
+.modelo-page {
+  width: 100%;
+  max-width: 1450px;
+}
+
+.page-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  margin-bottom: 40px;
+}
+
+.page-heading h2 {
+  margin: 0;
+
+  font-size: 28px;
+  color: #0e284a;
+}
+
+.page-heading p {
+  margin: 6px 0 0;
+
+  font-size: 13px;
+  color: #626f83;
+}
+
+.role-badge {
+  padding: 13px 24px;
+
+  background: #ffffff;
+
+  border: 1px solid #e0e6ef;
+  border-radius: 22px;
+
+  font-size: 13px;
+  color: #111825;
+}
+
+.model-card {
+  width: 100%;
+
+  background: #ffffff;
+
+  border: 1px solid #e0e6ef;
+  border-radius: 18px;
+
+  padding: 26px;
+}
+
+.model-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  margin-bottom: 28px;
+}
+
+.model-header h3 {
+  margin: 0 0 10px;
+
+  font-size: 20px;
+  color: #0e284a;
+}
+
+.status-badge {
+  display: inline-block;
+
+  padding: 6px 14px;
+
+  background: #edf9f4;
+  color: #1fa876;
+
+  border-radius: 999px;
+
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 18px;
+}
+
+.metric-card {
+  padding: 24px;
+
+  background: #f6f9fd;
+
+  border-radius: 14px;
+
+  text-align: center;
+}
+
+.metric-card strong {
+  display: block;
+
+  margin-bottom: 6px;
+
+  font-size: 22px;
+  color: #0e284a;
+}
+
+.metric-card span {
+  font-size: 12px;
+  color: #626f83;
+}
+
+@media (max-width: 900px) {
+  .metrics-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}

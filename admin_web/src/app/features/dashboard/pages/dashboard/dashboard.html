@@ -1,0 +1,448 @@
+<section class="dashboard-page">
+
+  <!-- =============================
+       ENCABEZADO
+  ============================== -->
+
+  <div class="page-header">
+
+    <div>
+      <h1>Dashboard</h1>
+
+      <p>
+        Resumen general del sistema MicroplastIA.
+      </p>
+    </div>
+
+    <div class="admin-badge">
+      Administrador
+    </div>
+
+  </div>
+
+
+  <!-- =============================
+       CARGANDO
+  ============================== -->
+
+  @if (cargando) {
+
+    <div class="state-message">
+      Cargando información...
+    </div>
+
+  }
+
+
+  <!-- =============================
+       ERROR
+  ============================== -->
+
+  @if (error) {
+
+    <div class="error-message">
+      {{ error }}
+    </div>
+
+  }
+
+
+  <!-- =============================
+       DASHBOARD
+  ============================== -->
+
+  @if (!cargando && !error && datos) {
+
+
+    <!-- =============================
+         MÉTRICAS PRINCIPALES
+    ============================== -->
+
+    <div class="stats-grid">
+
+
+      <!-- MUESTRAS -->
+
+      <div class="stat-card">
+
+        <div class="stat-label">
+          Muestras analizadas
+        </div>
+
+        <div class="stat-value">
+          {{ datos.muestras_analizadas }}
+        </div>
+
+        <div class="stat-description">
+          Análisis registrados en el sistema
+        </div>
+
+      </div>
+
+
+      <!-- PARTÍCULAS -->
+
+      <div class="stat-card">
+
+        <div class="stat-label">
+          Partículas detectadas
+        </div>
+
+        <div class="stat-value">
+          {{ datos.particulas_detectadas }}
+        </div>
+
+        <div class="stat-description">
+          Total acumulado de detecciones
+        </div>
+
+      </div>
+
+
+      <!-- USUARIOS -->
+
+      <div class="stat-card">
+
+        <div class="stat-label">
+          Usuarios registrados
+        </div>
+
+        <div class="stat-value">
+          {{ datos.usuarios_registrados }}
+        </div>
+
+        <div class="stat-description">
+          Usuarios de la aplicación móvil
+        </div>
+
+      </div>
+
+
+      <!-- MODELO -->
+
+      <div class="stat-card">
+
+        <div class="stat-label">
+          Modelo de IA
+        </div>
+
+        <div class="model-info">
+
+          <div class="model-name">
+            {{ datos.modelo_activo }}
+          </div>
+
+          <div
+            class="model-status"
+            [class.operational]="datos.modelo_operativo"
+            [class.offline]="!datos.modelo_operativo"
+          >
+
+            <span class="status-dot"></span>
+
+            {{
+              datos.modelo_operativo
+                ? 'Operativo'
+                : 'No disponible'
+            }}
+
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+
+
+    <!-- =============================
+         CONTENIDO SECUNDARIO
+    ============================== -->
+
+    <div class="dashboard-grid">
+
+
+      <!-- =============================
+           DISTRIBUCIÓN
+      ============================== -->
+
+      <div class="dashboard-card">
+
+        <div class="card-header">
+
+          <div>
+
+            <h2>
+              Distribución de detecciones
+            </h2>
+
+            <p>
+              Clasificación acumulada de microplásticos detectados.
+            </p>
+
+          </div>
+
+        </div>
+
+
+        <div class="distribution-list">
+
+
+          <div class="distribution-item">
+
+            <span>
+              Fibras
+            </span>
+
+            <strong>
+              {{ datos.distribucion.fibra }}
+            </strong>
+
+          </div>
+
+
+          <div class="distribution-item">
+
+            <span>
+              Fragmentos
+            </span>
+
+            <strong>
+              {{ datos.distribucion.fragmento }}
+            </strong>
+
+          </div>
+
+
+          <div class="distribution-item">
+
+            <span>
+              Gránulos
+            </span>
+
+            <strong>
+              {{ datos.distribucion['gránulo'] }}
+            </strong>
+
+          </div>
+
+
+          <div class="distribution-item">
+
+            <span>
+              Películas
+            </span>
+
+            <strong>
+              {{ datos.distribucion['película'] }}
+            </strong>
+
+          </div>
+
+        </div>
+
+
+        @if (datos.particulas_detectadas === 0) {
+
+          <div class="pending-data">
+
+            Aún no existen detecciones clasificadas
+            registradas en el sistema.
+
+          </div>
+
+        }
+
+      </div>
+
+
+      <!-- =============================
+           MODELO
+      ============================== -->
+
+      <div class="dashboard-card">
+
+        <div class="card-header">
+
+          <div>
+
+            <h2>
+              Estado del modelo
+            </h2>
+
+            <p>
+              Configuración y rendimiento del servicio de inferencia.
+            </p>
+
+          </div>
+
+        </div>
+
+
+        <!-- MODELO CARGADO -->
+
+        <div class="model-detail-row">
+
+          <span>
+            Modelo cargado
+          </span>
+
+          <strong>
+            {{ datos.modelo_activo }}
+          </strong>
+
+        </div>
+
+
+        <!-- ESTADO -->
+
+        <div class="model-detail-row">
+
+          <span>
+            Estado
+          </span>
+
+          <strong
+            [class.success-text]="datos.modelo_operativo"
+            [class.error-text]="!datos.modelo_operativo"
+          >
+
+            {{
+              datos.modelo_operativo
+                ? 'Operativo'
+                : 'No disponible'
+            }}
+
+          </strong>
+
+        </div>
+
+
+        <!-- RESOLUCIÓN -->
+
+        <div class="model-detail-row">
+
+          <span>
+            Resolución de inferencia
+          </span>
+
+          <strong>
+
+            {{ datos.resolucion_inferencia }}
+            ×
+            {{ datos.resolucion_inferencia }}
+
+          </strong>
+
+        </div>
+
+
+        <!-- UMBRAL -->
+
+        <div class="model-detail-row">
+
+          <span>
+            Umbral de confianza
+          </span>
+
+          <strong>
+
+            {{
+              datos.umbral_confianza * 100
+                | number:'1.0-0'
+            }}%
+
+          </strong>
+
+        </div>
+
+
+        <!-- CLASES -->
+
+        <div class="model-detail-row">
+
+          <span>
+            Clases del modelo
+          </span>
+
+          <strong>
+            {{ datos.numero_clases }}
+          </strong>
+
+        </div>
+
+
+        <!-- PROMEDIO -->
+
+        <div class="model-detail-row">
+
+          <span>
+            Tiempo promedio
+          </span>
+
+          <strong>
+
+            {{
+              datos.tiempo_promedio_inferencia_ms / 1000
+                | number:'1.2-2'
+            }}
+            s
+
+          </strong>
+
+        </div>
+
+
+        <!-- ÚLTIMA INFERENCIA -->
+
+        <div class="model-detail-row">
+
+          <span>
+            Última inferencia
+          </span>
+
+          <strong>
+
+            @if (
+              datos.ultima_inferencia_ms !== null
+            ) {
+
+              {{
+                datos.ultima_inferencia_ms / 1000
+                  | number:'1.2-2'
+              }}
+              s
+
+            } @else {
+
+              Sin datos
+
+            }
+
+          </strong>
+
+        </div>
+
+
+        <!-- NOTA IMPORTANTE -->
+
+        @if (datos.numero_clases === 80) {
+
+          <div class="model-warning">
+
+            Actualmente está cargado el modelo base
+            YOLOv8n con 80 clases. El modelo entrenado
+            específicamente para microplásticos deberá
+            reemplazarlo cuando esté disponible.
+
+          </div>
+
+        }
+
+      </div>
+
+    </div>
+
+  }
+
+</section>
