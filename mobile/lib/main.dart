@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'routes/app_router.dart';
 import 'services/session_service.dart';
 import 'viewmodels/analysis_viewmodel.dart';
+import 'viewmodels/history_viewmodel.dart';
 import 'viewmodels/login_viewmodel.dart';
 import 'viewmodels/register_viewmodel.dart';
 
@@ -26,6 +27,9 @@ class MyApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(
           create: (_) => AnalysisViewModel(),
+        ),
+        ChangeNotifierProvider(
+          create: (_) => HistoryViewModel(),
         ),
         ChangeNotifierProvider(
           create: (_) => LoginViewModel(),

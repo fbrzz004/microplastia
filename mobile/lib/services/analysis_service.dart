@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 
 import '../core/config/app_config.dart';
+import 'session_service.dart';
 
 class AnalysisService {
   static const Duration _timeout = Duration(seconds: 60);
@@ -31,10 +32,18 @@ class AnalysisService {
     required Uint8List bytes,
     required String filename,
   }) async {
+    final token = await SessionService.getToken();
+
+    if (token == null || token.isEmpty) {
+      throw Exception('Tu sesión expiró. Inicia sesión de nuevo.');
+    }
+
     final request = http.MultipartRequest(
       'POST',
       Uri.parse(AppConfig.analyzeEndpoint),
     );
+
+    request.headers['Authorization'] = 'Bearer $token';
 
     request.files.add(
       http.MultipartFile.fromBytes(

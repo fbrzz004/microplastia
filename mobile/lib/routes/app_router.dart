@@ -8,6 +8,7 @@ import '../views/home_view.dart';
 import '../views/analysis_view.dart';
 import '../views/result_view.dart';
 import '../views/history_view.dart';
+import '../views/history_detail_view.dart';
 
 GoRouter createRouter(bool hasSession) {
   return GoRouter(
@@ -61,6 +62,19 @@ GoRouter createRouter(bool hasSession) {
       GoRoute(
         path: '/result',
         builder: (context, state) => const ResultView(),
+      ),
+
+      GoRoute(
+        path: '/history/:id',
+        builder: (context, state) {
+          final id = int.tryParse(state.pathParameters['id'] ?? '');
+
+          if (id == null) {
+            return const HistoryView();
+          }
+
+          return HistoryDetailView(resultId: id);
+        },
       ),
     ],
   );
