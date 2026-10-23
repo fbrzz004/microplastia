@@ -9,6 +9,10 @@ router = APIRouter(tags=["Analysis"])
 
 MAX_UPLOAD_BYTES = 10 * 1024 * 1024  # 10 MB
 
+# Clientes como Flutter pueden enviar el archivo sin tipo MIME específico.
+# En ese caso se valida el contenido real con OpenCV más abajo.
+CONTENT_TYPES_SIN_MIME = {"application/octet-stream", "binary/octet-stream"}
+
 
 @router.post("/analyze", response_model=AnalysisResponse)
 async def analyze_sample(
@@ -22,7 +26,11 @@ async def analyze_sample(
     if not sample_id:
         sample_id = f"MUESTRA-{uuid.uuid4().hex[:8].upper()}"
 
-    if file.content_type and not file.content_type.startswith("image/"):
+    if (
+        file.content_type
+        and not file.content_type.startswith("image/")
+        and file.content_type not in CONTENT_TYPES_SIN_MIME
+    ):
         raise HTTPException(
             status_code=400,
             detail="El archivo debe ser una imagen (JPG o PNG).",

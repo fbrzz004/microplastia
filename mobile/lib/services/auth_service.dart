@@ -1,9 +1,12 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../core/config/app_config.dart';
 import 'session_service.dart';
 
 class AuthService {
+  static const Duration _timeout = Duration(seconds: 10);
+
   Future<Map<String, dynamic>> login({
     required String correo,
     required String password,
@@ -22,7 +25,7 @@ class AuthService {
         'correo': correo,
         'password': password,
       }),
-    );
+    ).timeout(_timeout);
 
     final data = _decodeResponse(response.body);
 
@@ -74,7 +77,7 @@ class AuthService {
         'correo': correo,
         'password': password,
       }),
-    );
+    ).timeout(_timeout);
 
     final data = _decodeResponse(response.body);
 

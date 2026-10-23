@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import '../services/auth_service.dart';
 
@@ -41,6 +43,10 @@ class LoginViewModel extends ChangeNotifier {
       _errorMessage = result['message']?.toString()
           ?? 'Error al iniciar sesión';
 
+      return false;
+    } on TimeoutException {
+      _errorMessage =
+          'El servidor no respondió. Verifica la conexión e inténtalo de nuevo';
       return false;
     } catch (e) {
       _errorMessage = 'No se pudo conectar con el servidor';

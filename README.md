@@ -91,8 +91,14 @@ Ejecuta la aplicación en un emulador o dispositivo compatible.
 La URL base depende del entorno donde se ejecuta Flutter:
 
 * **Emulador Android:** `http://10.0.2.2:8000`
-* **Flutter Web en la misma computadora:** `http://127.0.0.1:8000`
+* **Flutter Web y escritorio (Linux/Windows/macOS):** `http://127.0.0.1:8000`
 * **Dispositivo Android físico:** utiliza la dirección IP local de la computadora donde se ejecuta FastAPI, con ambos dispositivos conectados a una red que permita la comunicación.
+
+La URL se puede sobrescribir al compilar o ejecutar con `--dart-define`:
+
+```bash
+flutter run --dart-define=API_BASE_URL=http://172.16.58.141:8000
+```
 
 La configuración de la URL debe mantenerse centralizada en el archivo de configuración del frontend. Para Flutter Web, también puede ser necesario configurar CORS en FastAPI.
 
