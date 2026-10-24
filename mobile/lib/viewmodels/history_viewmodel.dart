@@ -36,7 +36,6 @@ class HistoryViewModel extends ChangeNotifier {
       final fecha = formatearFecha(item.createdAt).toLowerCase();
 
       return item.sampleId.toLowerCase().contains(consulta) ||
-          (item.filename ?? '').toLowerCase().contains(consulta) ||
           fecha.contains(consulta);
     }).toList();
   }

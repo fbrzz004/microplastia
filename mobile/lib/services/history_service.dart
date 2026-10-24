@@ -85,11 +85,8 @@ class HistoryService {
     try {
       decoded = jsonDecode(response.body);
     } on FormatException {
-      throw Exception('El servidor devolvió una respuesta no válida.');
-    }
-
-    if (decoded is! Map<String, dynamic>) {
-      throw Exception('Formato de respuesta inesperado.');
+      // Un 500 de FastAPI responde texto plano, no JSON: se informa el código.
+      decoded = null;
     }
 
     if (response.statusCode == 401) {
@@ -101,10 +98,19 @@ class HistoryService {
     }
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
+      final detalle = decoded is Map
+          ? decoded['detail'] ?? decoded['message']
+          : null;
+
       throw Exception(
-        decoded['detail']?.toString() ??
-            'No se pudo cargar el historial (${response.statusCode}).',
+        detalle?.toString() ??
+            'El servidor respondió ${response.statusCode}. '
+                'Inténtalo de nuevo.',
       );
+    }
+
+    if (decoded is! Map<String, dynamic>) {
+      throw Exception('El servidor devolvió una respuesta no válida.');
     }
 
     final data = decoded['data'];
