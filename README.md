@@ -6,9 +6,7 @@ Aplicación móvil orientada al análisis de imágenes de microscopía para apoy
 
 **En desarrollo.**
 
-Actualmente, el proyecto cuenta con una estructura inicial para la aplicación móvil en Flutter y el backend en FastAPI. La navegación entre las pantallas principales está implementada y el endpoint de salud del backend ha sido verificado.
-
-La integración del modelo YOLOv8n, el envío real de imágenes y el almacenamiento de los resultados están pendientes de implementación o validación.
+El proyecto ya integra el modelo YOLOv8n para el análisis de imágenes, el registro e inicio de sesión con JWT, y el almacenamiento de cada análisis en el historial del usuario. La generación de reportes a partir de los análisis seleccionados está pendiente.
 
 ## Tecnologías
 
@@ -62,10 +60,17 @@ El backend estará disponible normalmente en:
 
 ### Endpoints disponibles
 
-| Método | Endpoint          | Propósito                                                                   |
-| ------ | ----------------- | --------------------------------------------------------------------------- |
-| GET    | `/api/v1/health`  | Verificar el estado de la API.                                              |
-| POST   | `/api/v1/analyze` | Endpoint de análisis en desarrollo; la respuesta actual puede ser simulada. |
+| Método | Endpoint                | Propósito                                                                 |
+| ------ | ----------------------- | ------------------------------------------------------------------------- |
+| GET    | `/api/v1/health`        | Verificar el estado de la API.                                            |
+| POST   | `/api/v1/auth/register` | Registrar un usuario.                                                     |
+| POST   | `/api/v1/auth/login`    | Iniciar sesión y obtener el token JWT.                                    |
+| POST   | `/api/v1/analyze`       | Analizar una imagen, guardarla en el historial y devolver las detecciones. |
+| GET    | `/api/v1/history`       | Listar los análisis del usuario autenticado.                              |
+| GET    | `/api/v1/results/{id}`  | Obtener el detalle de un análisis guardado.                               |
+
+Los endpoints de análisis e historial requieren el encabezado
+`Authorization: Bearer <token>` obtenido en el inicio de sesión.
 
 Documentación interactiva:
 
@@ -91,8 +96,14 @@ Ejecuta la aplicación en un emulador o dispositivo compatible.
 La URL base depende del entorno donde se ejecuta Flutter:
 
 * **Emulador Android:** `http://10.0.2.2:8000`
-* **Flutter Web en la misma computadora:** `http://127.0.0.1:8000`
+* **Flutter Web y escritorio (Linux/Windows/macOS):** `http://127.0.0.1:8000`
 * **Dispositivo Android físico:** utiliza la dirección IP local de la computadora donde se ejecuta FastAPI, con ambos dispositivos conectados a una red que permita la comunicación.
+
+La URL se puede sobrescribir al compilar o ejecutar con `--dart-define`:
+
+```bash
+flutter run --dart-define=API_BASE_URL=http://172.16.58.141:8000
+```
 
 La configuración de la URL debe mantenerse centralizada en el archivo de configuración del frontend. Para Flutter Web, también puede ser necesario configurar CORS en FastAPI.
 
@@ -103,8 +114,9 @@ La configuración de la URL debe mantenerse centralizada en el archivo de config
 3. Selección y envío de una imagen al backend.
 4. Procesamiento de la imagen mediante el modelo de detección.
 5. Presentación de resultados y consulta del historial.
+6. Selección de análisis para generar reportes (pendiente).
 
-Los pasos que dependen del modelo, del envío real de imágenes y del almacenamiento todavía requieren implementación y pruebas.
+La generación de reportes es la funcionalidad pendiente del flujo.
 
 ## Buenas prácticas para contribuir
 

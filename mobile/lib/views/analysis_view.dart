@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -6,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
 import '../viewmodels/analysis_viewmodel.dart';
+import '../viewmodels/history_viewmodel.dart';
 
 class AnalysisView extends StatefulWidget {
   const AnalysisView({super.key});
@@ -80,6 +82,7 @@ class _AnalysisViewState extends State<AnalysisView> {
     if (!mounted) return;
 
     if (correcto) {
+      unawaited(context.read<HistoryViewModel>().refrescar());
       context.go('/result');
     } else {
       setState(() {

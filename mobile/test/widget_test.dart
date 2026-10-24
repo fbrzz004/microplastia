@@ -11,7 +11,7 @@ void main() {
         ),
       );
 
-      expect(find.text('Iniciar sesión'), findsOneWidget);
+      expect(find.text('Ingresar'), findsOneWidget);
     },
   );
 }

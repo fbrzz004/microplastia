@@ -1,0 +1,144 @@
+<section class="login-page">
+  <div class="login-shell">
+
+    <div class="visual-panel">
+      <div class="brand-row">
+        <div class="brand-mark">M</div>
+
+        <div>
+          <h1>MicroplastIA</h1>
+          <span>Panel administrativo</span>
+        </div>
+      </div>
+
+      <div class="image-card">
+        <img
+          src="/images/microplastics-login.png"
+          alt="Contaminación por plásticos en una playa"
+        />
+      </div>
+
+      <div class="visual-copy">
+        <h2>Detecta. Analiza. Gestiona.</h2>
+
+        <p>
+          Centraliza la supervisión de usuarios, muestras y resultados
+          del sistema de detección de microplásticos.
+        </p>
+      </div>
+    </div>
+
+    <div class="form-panel">
+
+      <div class="secure-badge">
+        Área segura
+      </div>
+
+      <div class="login-card">
+
+        <div class="mini-brand">M</div>
+
+        <h2>Bienvenido de nuevo</h2>
+
+        <p class="login-description">
+          Ingresa tus credenciales para acceder al panel administrativo.
+        </p>
+
+        <form (ngSubmit)="iniciarSesion()">
+
+          <div class="form-group">
+            <label for="email">
+              Correo electrónico
+            </label>
+
+            <input
+              id="email"
+              type="email"
+              name="correo"
+              [(ngModel)]="correo"
+              placeholder="admin@microplastia.com"
+              autocomplete="email"
+              required
+            />
+          </div>
+
+          <div class="form-group">
+            <label for="password">
+              Contraseña
+            </label>
+
+            <div class="password-wrapper">
+
+              <input
+                id="password"
+                [type]="mostrarPassword ? 'text' : 'password'"
+                name="password"
+                [(ngModel)]="password"
+                placeholder="••••••••"
+                autocomplete="current-password"
+              />
+
+              <button
+                class="password-toggle"
+                type="button"
+                (click)="mostrarPassword = !mostrarPassword"
+                [attr.aria-label]="mostrarPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'"
+              >
+                {{ mostrarPassword ? '◉' : '◉' }}
+              </button>
+
+            </div>
+          </div>
+
+          <div class="login-options">
+
+            <label class="remember-option">
+
+              <input
+                type="checkbox"
+                name="mantenerSesion"
+                [(ngModel)]="mantenerSesion"
+              />
+
+              <span>
+                Mantener sesión
+              </span>
+
+            </label>
+
+            <a href="#">
+              ¿Olvidaste tu contraseña?
+            </a>
+
+          </div>
+
+          @if (error) {
+            <div class="login-error">
+              {{ error }}
+            </div>
+          }
+
+          <button
+            class="login-button"
+            type="submit"
+            [disabled]="cargando"
+          >
+            {{ cargando ? 'Ingresando...' : 'Iniciar sesión' }}
+          </button>
+
+        </form>
+
+        <div class="authorized-message">
+          Acceso exclusivo para personal autorizado
+        </div>
+
+      </div>
+
+      <footer>
+        © 2026 MicroplastIA · Panel administrativo
+      </footer>
+
+    </div>
+
+  </div>
+</section>

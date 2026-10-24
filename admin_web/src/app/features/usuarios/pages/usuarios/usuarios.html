@@ -1,0 +1,169 @@
+<section class="usuarios-page">
+
+  <div class="page-header">
+    <div>
+      <h1>Usuarios registrados</h1>
+
+      <p>
+        Consulta los usuarios y su actividad en la aplicación móvil.
+      </p>
+    </div>
+
+    <div class="admin-badge">
+      Administrador
+    </div>
+  </div>
+
+  <div class="usuarios-card">
+
+    <div class="toolbar">
+
+      <div class="search-box">
+
+        <span class="search-icon">
+          🔍
+        </span>
+
+        <input
+          type="text"
+          placeholder="Buscar por nombre o correo"
+        />
+
+      </div>
+
+    </div>
+
+    @if (cargando) {
+
+      <div class="state-message">
+        Cargando usuarios...
+      </div>
+
+    }
+
+    @if (error) {
+
+      <div class="error-message">
+        {{ error }}
+      </div>
+
+    }
+
+    @if (!cargando && !error) {
+
+      <div class="table-wrapper">
+
+        <table>
+
+          <thead>
+
+            <tr>
+              <th>Nombre</th>
+              <th>Correo</th>
+              <th>Estado</th>
+              <th>Muestras realizadas</th>
+              <th>Último análisis</th>
+            </tr>
+
+          </thead>
+
+          <tbody>
+
+            @for (usuario of usuarios; track usuario.id_usuario) {
+
+              <tr>
+
+                <td>
+
+                  <div class="user-cell">
+
+                    <div class="avatar">
+                      {{ usuario.nombre.charAt(0) }}
+                    </div>
+
+                    <div class="user-info">
+
+                      <strong>
+                        {{ usuario.nombre }}
+                        {{ usuario.apellido ?? '' }}
+                      </strong>
+
+                      <span>
+                        ID #{{ usuario.id_usuario }}
+                      </span>
+
+                    </div>
+
+                  </div>
+
+                </td>
+
+                <td class="email-cell">
+                  {{ usuario.correo }}
+                </td>
+
+                <td>
+
+                  <span
+                    class="status-badge"
+                    [class.active]="usuario.estado"
+                    [class.inactive]="!usuario.estado"
+                  >
+                    {{ usuario.estado ? 'Activo' : 'Inactivo' }}
+                  </span>
+
+                </td>
+
+                <td class="activity-cell">
+                  {{ usuario.muestras_realizadas }}
+                </td>
+
+                <td class="activity-cell">
+
+                  @if (usuario.ultimo_analisis) {
+
+                    {{
+                      usuario.ultimo_analisis
+                        | date:'dd/MM/yyyy, HH:mm'
+                    }}
+
+                  } @else {
+
+                    <span class="no-activity">
+                      Sin análisis
+                    </span>
+
+                  }
+
+                </td>
+
+              </tr>
+
+            }
+
+            @if (usuarios.length === 0) {
+
+              <tr>
+
+                <td
+                  colspan="5"
+                  class="empty-message"
+                >
+                  No hay usuarios registrados.
+                </td>
+
+              </tr>
+
+            }
+
+          </tbody>
+
+        </table>
+
+      </div>
+
+    }
+
+  </div>
+
+</section>

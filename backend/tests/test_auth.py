@@ -1,42 +1,4 @@
-import uuid
-
-import pytest
-from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
-
-from app.db.session import Base, get_db
-from app.main import app
-
-# Base de datos SQLite en memoria para aislar los tests del despliegue real.
-engine = create_engine(
-    "sqlite://",
-    connect_args={"check_same_thread": False},
-    poolclass=StaticPool,
-)
-TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-Base.metadata.create_all(bind=engine)
-
-
-def override_get_db():
-    db = TestingSessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
-
-app.dependency_overrides[get_db] = override_get_db
-client = TestClient(app)
-
-
-@pytest.fixture()
-def correo_unico():
-    return f"test_{uuid.uuid4().hex[:8]}@example.com"
-
-
-def test_register_login_flow(correo_unico):
+def test_register_login_flow(client, correo_unico):
     registro = client.post(
         "/api/v1/auth/register",
         json={
@@ -61,7 +23,7 @@ def test_register_login_flow(correo_unico):
     assert body["usuario"]["correo"] == correo_unico
 
 
-def test_register_correo_duplicado(correo_unico):
+def test_register_correo_duplicado(client, correo_unico):
     payload = {
         "nombre": "Test",
         "correo": correo_unico,
@@ -72,7 +34,7 @@ def test_register_correo_duplicado(correo_unico):
     assert duplicado.status_code == 400
 
 
-def test_login_password_incorrecta(correo_unico):
+def test_login_password_incorrecta(client, correo_unico):
     client.post(
         "/api/v1/auth/register",
         json={

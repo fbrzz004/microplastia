@@ -1,0 +1,153 @@
+:host {
+  display: block;
+  height: 100%;
+}
+
+.sidebar {
+  width: 230px;
+  min-height: 100vh;
+
+  display: flex;
+  flex-direction: column;
+
+  padding: 28px 18px 22px;
+
+  background: #0e284a;
+  color: #ffffff;
+}
+
+/* =========================
+   MARCA
+========================= */
+
+.sidebar-brand {
+  padding: 0 6px;
+
+  margin-bottom: 34px;
+}
+
+.sidebar-brand h1 {
+  margin: 0;
+
+  color: #ffffff;
+
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.sidebar-brand span {
+  display: block;
+
+  margin-top: 4px;
+
+  color: #abc4e5;
+
+  font-size: 11px;
+}
+
+/* =========================
+   NAVEGACIÓN
+========================= */
+
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+
+  gap: 8px;
+}
+
+.nav-item {
+  width: 100%;
+  height: 44px;
+
+  display: flex;
+  align-items: center;
+
+  padding: 0 14px;
+
+  color: #d7e3f2;
+
+  border-radius: 12px;
+
+  font-size: 13px;
+  font-weight: 500;
+
+  text-decoration: none;
+
+  transition:
+    background 0.2s ease,
+    color 0.2s ease;
+}
+
+.nav-item:hover {
+  background: #173b67;
+  color: #ffffff;
+}
+
+.nav-item.active {
+  background: #22558b;
+  color: #ffffff;
+
+  font-weight: 600;
+}
+
+/* =========================
+   FOOTER
+========================= */
+
+.sidebar-footer {
+  margin-top: auto;
+
+  padding-top: 24px;
+}
+
+.logout-button {
+  width: 100%;
+  height: 44px;
+
+  display: flex;
+  align-items: center;
+
+  gap: 10px;
+
+  padding: 0 14px;
+
+  background: transparent;
+  color: #d1def0;
+
+  border: 1px solid #294a70;
+  border-radius: 12px;
+
+  font-size: 13px;
+  font-weight: 500;
+
+  cursor: pointer;
+
+  transition:
+    background 0.2s ease,
+    color 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.logout-button:hover {
+  background: #173b67;
+  color: #ffffff;
+  border-color: #3a628e;
+}
+
+.logout-icon {
+  font-size: 17px;
+}
+
+/* =========================
+   RESPONSIVE
+========================= */
+
+@media (max-width: 900px) {
+  .sidebar {
+    width: 200px;
+
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+}

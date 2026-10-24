@@ -1,5 +1,10 @@
-
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
+
+import '../core/utils/format.dart';
+import '../models/analysis_result.dart';
+import '../viewmodels/history_viewmodel.dart';
 
 class HistoryView extends StatefulWidget {
   const HistoryView({super.key});
@@ -14,71 +19,17 @@ class _HistoryViewState extends State<HistoryView> {
   static const Color secundario = Color(0xFF8492A6);
   static const Color azulBorde = Color(0xFFDCE6F1);
   static const Color fondoBusqueda = Color(0xFFF4F7FB);
-  static const Color verde = Color(0xFF00A878);
 
-  final TextEditingController _busquedaController =
-      TextEditingController();
+  final TextEditingController _busquedaController = TextEditingController();
 
-  String _busqueda = '';
+  @override
+  void initState() {
+    super.initState();
 
-  // Datos provisionales hasta conectar el historial con el backend.
-  final List<_AnalysisItem> _analisis = [
-    _AnalysisItem(id: '024', porcentaje: 92, selected: true),
-    _AnalysisItem(id: '023', porcentaje: 90, selected: true),
-    _AnalysisItem(id: '022', porcentaje: 94),
-    _AnalysisItem(id: '021', porcentaje: 88),
-  ];
-
-  List<_AnalysisItem> get _analisisFiltrados {
-    final query = _busqueda.trim().toLowerCase();
-
-    if (query.isEmpty) return _analisis;
-
-    return _analisis.where((item) {
-      return 'muestra #${item.id}'.contains(query) ||
-          item.id.contains(query);
-    }).toList();
-  }
-
-  int get _cantidadSeleccionada =>
-      _analisis.where((item) => item.selected).length;
-
-  void _alternarSeleccion(_AnalysisItem item) {
-    setState(() {
-      item.selected = !item.selected;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      context.read<HistoryViewModel>().cargar();
     });
-  }
-
-  void _alternarSeleccionTodos() {
-    setState(() {
-      final seleccionarTodos =
-          _analisis.any((item) => !item.selected);
-
-      for (final item in _analisis) {
-        item.selected = seleccionarTodos;
-      }
-    });
-  }
-
-  void _generarReporte() {
-    if (_cantidadSeleccionada == 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Selecciona al menos un análisis.'),
-        ),
-      );
-      return;
-    }
-
-    // Aquí conectaremos posteriormente el servicio de reportes.
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          'Has seleccionado $_cantidadSeleccionada análisis. '
-          'La generación del reporte está pendiente de conectar.',
-        ),
-      ),
-    );
   }
 
   @override
@@ -87,9 +38,20 @@ class _HistoryViewState extends State<HistoryView> {
     super.dispose();
   }
 
+  void _generarReporte(int cantidad) {
+    final mensaje = cantidad == 0
+        ? 'Selecciona al menos un análisis.'
+        : 'Has seleccionado $cantidad análisis. '
+            'La generación del reporte estará disponible pronto.';
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(mensaje)),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final resultados = _analisisFiltrados;
+    final viewModel = context.watch<HistoryViewModel>();
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -97,284 +59,348 @@ class _HistoryViewState extends State<HistoryView> {
         child: Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 560),
-            child: Column(
-              children: [
-                Expanded(
-                  child: ListView(
-                    padding: const EdgeInsets.fromLTRB(
-                      18, 16, 18, 20,
+            child: RefreshIndicator(
+              onRefresh: viewModel.refrescar,
+              child: ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(18, 16, 18, 20),
+                children: [
+                  _encabezado(viewModel),
+                  const SizedBox(height: 24),
+                  _buscador(viewModel),
+                  const SizedBox(height: 20),
+                  ..._contenido(viewModel),
+                  const SizedBox(height: 8),
+                  Text(
+                    '${viewModel.cantidadSeleccionada} análisis seleccionados',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: secundario,
                     ),
-                    children: [
-                      // Encabezado
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Expanded(
-                            child: Column(
-                              crossAxisAlignment:
-                                  CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Historial',
-                                  style: TextStyle(
-                                    fontSize: 22,
-                                    fontWeight: FontWeight.w700,
-                                    color: texto,
-                                  ),
-                                ),
-                                SizedBox(height: 3),
-                                Text(
-                                  'Selecciona análisis para generar un reporte',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: secundario,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          OutlinedButton(
-                            onPressed: _alternarSeleccionTodos,
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: azul,
-                              backgroundColor:
-                                  const Color(0xFFF4F8FF),
-                              side: const BorderSide(
-                                color: azulBorde,
-                              ),
-                              padding:
-                                  const EdgeInsets.symmetric(
-                                horizontal: 13,
-                                vertical: 12,
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius:
-                                    BorderRadius.circular(11),
-                              ),
-                            ),
-                            child: Text(
-                              _analisis.isNotEmpty &&
-                                      _analisis.every(
-                                        (item) => item.selected,
-                                      )
-                                  ? 'Deseleccionar'
-                                  : 'Seleccionar',
-                              style: const TextStyle(fontSize: 12),
-                            ),
-                          ),
-                        ],
-                      ),
-
-                      const SizedBox(height: 32),
-
-                      // Buscador
-                      TextField(
-                        controller: _busquedaController,
-                        onChanged: (value) {
-                          setState(() => _busqueda = value);
-                        },
-                        decoration: InputDecoration(
-                          hintText: 'Buscar por muestra o fecha',
-                          hintStyle: const TextStyle(
-                            fontSize: 12,
-                            color: secundario,
-                          ),
-                          prefixIcon: const Icon(
-                            Icons.search,
-                            size: 19,
-                            color: secundario,
-                          ),
-                          suffixIcon: _busqueda.isNotEmpty
-                              ? IconButton(
-                                  onPressed: () {
-                                    _busquedaController.clear();
-                                    setState(() => _busqueda = '');
-                                  },
-                                  icon: const Icon(
-                                    Icons.close,
-                                    size: 18,
-                                  ),
-                                )
-                              : null,
-                          filled: true,
-                          fillColor: fondoBusqueda,
-                          contentPadding:
-                              const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 15,
-                          ),
-                          border: OutlineInputBorder(
-                            borderRadius:
-                                BorderRadius.circular(13),
-                            borderSide: BorderSide.none,
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius:
-                                BorderRadius.circular(13),
-                            borderSide: const BorderSide(
-                              color: azulBorde,
-                            ),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius:
-                                BorderRadius.circular(13),
-                            borderSide: const BorderSide(
-                              color: azul,
-                            ),
-                          ),
-                        ),
-                      ),
-
-                      const SizedBox(height: 24),
-
-                      // Tarjetas del historial
-                      if (resultados.isEmpty)
-                        const Padding(
-                          padding: EdgeInsets.symmetric(
-                            vertical: 35,
-                          ),
-                          child: Text(
-                            'No se encontraron análisis.',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              color: secundario,
-                              fontSize: 13,
-                            ),
-                          ),
-                        )
-                      else
-                        ...resultados.map(
-                          (item) => Padding(
-                            padding: const EdgeInsets.only(
-                              bottom: 12,
-                            ),
-                            child: _AnalysisCard(
-                              item: item,
-                              onTap: () =>
-                                  _alternarSeleccion(item),
-                            ),
-                          ),
-                        ),
-
-                      const SizedBox(height: 8),
-
-                      Text(
-                        '$_cantidadSeleccionada análisis seleccionados',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: secundario,
-                        ),
-                      ),
-
-                      const SizedBox(height: 14),
-
-                      SizedBox(
-                        height: 47,
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          onPressed: _generarReporte,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: azul,
-                            foregroundColor: Colors.white,
-                            elevation: 0,
-                            shape: RoundedRectangleBorder(
-                              borderRadius:
-                                  BorderRadius.circular(12),
-                            ),
-                          ),
-                          child: Text(
-                            'Generar reporte ($_cantidadSeleccionada)',
-                            style: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
                   ),
-                ),
-              ],
+                  const SizedBox(height: 14),
+                  SizedBox(
+                    height: 47,
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () =>
+                          _generarReporte(viewModel.cantidadSeleccionada),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: azul,
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: Text(
+                        'Generar reporte (${viewModel.cantidadSeleccionada})',
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
       ),
     );
   }
-}
 
-class _AnalysisItem {
-  final String id;
-  final int porcentaje;
-  bool selected;
+  Widget _encabezado(HistoryViewModel viewModel) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Historial',
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w700,
+                  color: texto,
+                ),
+              ),
+              SizedBox(height: 3),
+              Text(
+                'Tus análisis guardados',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: secundario,
+                ),
+              ),
+            ],
+          ),
+        ),
+        if (viewModel.items.isNotEmpty)
+          OutlinedButton(
+            onPressed: viewModel.alternarSeleccionTodos,
+            style: OutlinedButton.styleFrom(
+              foregroundColor: azul,
+              backgroundColor: const Color(0xFFF4F8FF),
+              side: const BorderSide(color: azulBorde),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 13,
+                vertical: 12,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(11),
+              ),
+            ),
+            child: Text(
+              viewModel.todosSeleccionados ? 'Deseleccionar' : 'Seleccionar',
+              style: const TextStyle(fontSize: 12),
+            ),
+          ),
+      ],
+    );
+  }
 
-  _AnalysisItem({
-    required this.id,
-    required this.porcentaje,
-    this.selected = false,
-  });
+  Widget _buscador(HistoryViewModel viewModel) {
+    return TextField(
+      controller: _busquedaController,
+      onChanged: viewModel.buscar,
+      decoration: InputDecoration(
+        hintText: 'Buscar por muestra o fecha',
+        hintStyle: const TextStyle(
+          fontSize: 12,
+          color: secundario,
+        ),
+        prefixIcon: const Icon(
+          Icons.search,
+          size: 19,
+          color: secundario,
+        ),
+        suffixIcon: viewModel.busqueda.isNotEmpty
+            ? IconButton(
+                onPressed: () {
+                  _busquedaController.clear();
+                  viewModel.buscar('');
+                },
+                icon: const Icon(Icons.close, size: 18),
+              )
+            : null,
+        filled: true,
+        fillColor: fondoBusqueda,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: 15,
+        ),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(13),
+          borderSide: BorderSide.none,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(13),
+          borderSide: const BorderSide(color: azulBorde),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(13),
+          borderSide: const BorderSide(color: azul),
+        ),
+      ),
+    );
+  }
+
+  List<Widget> _contenido(HistoryViewModel viewModel) {
+    if (viewModel.isLoading && !viewModel.hasLoaded) {
+      return const [
+        Padding(
+          padding: EdgeInsets.symmetric(vertical: 48),
+          child: Center(child: CircularProgressIndicator()),
+        ),
+      ];
+    }
+
+    if (viewModel.errorMessage != null && viewModel.items.isEmpty) {
+      return [
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 32),
+          child: Column(
+            children: [
+              const Icon(
+                Icons.cloud_off_outlined,
+                size: 42,
+                color: secundario,
+              ),
+              const SizedBox(height: 10),
+              Text(
+                viewModel.errorMessage!,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: secundario,
+                ),
+              ),
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                onPressed: viewModel.refrescar,
+                icon: const Icon(Icons.refresh, size: 18),
+                label: const Text('Reintentar'),
+              ),
+            ],
+          ),
+        ),
+      ];
+    }
+
+    if (viewModel.items.isEmpty) {
+      return const [
+        Padding(
+          padding: EdgeInsets.symmetric(vertical: 40),
+          child: Column(
+            children: [
+              Icon(
+                Icons.history_toggle_off,
+                size: 48,
+                color: secundario,
+              ),
+              SizedBox(height: 10),
+              Text(
+                'Todavía no hay análisis guardados.\n'
+                'Analiza una muestra para verla aquí.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 13, color: secundario),
+              ),
+            ],
+          ),
+        ),
+      ];
+    }
+
+    final resultados = viewModel.filtrados;
+
+    if (resultados.isEmpty) {
+      return const [
+        Padding(
+          padding: EdgeInsets.symmetric(vertical: 35),
+          child: Text(
+            'No se encontraron análisis.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: secundario, fontSize: 13),
+          ),
+        ),
+      ];
+    }
+
+    return [
+      if (viewModel.errorMessage != null)
+        Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: Text(
+            'No se pudo actualizar: ${viewModel.errorMessage}',
+            style: const TextStyle(fontSize: 11, color: Colors.redAccent),
+          ),
+        ),
+      ...resultados.map(
+        (item) => Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: _AnalysisCard(
+            item: item,
+            selected: viewModel.estaSeleccionado(item.id),
+            onOpen: () => context.push('/history/${item.id}'),
+            onToggle: () => viewModel.alternarSeleccion(item.id),
+          ),
+        ),
+      ),
+    ];
+  }
 }
 
 class _AnalysisCard extends StatelessWidget {
-  final _AnalysisItem item;
-  final VoidCallback onTap;
-
-  const _AnalysisCard({
-    required this.item,
-    required this.onTap,
-  });
-
   static const Color azul = Color(0xFF1976E9);
+  static const Color azulClaro = Color(0xFFE1F5FE);
   static const Color azulBorde = Color(0xFFDCE6F1);
   static const Color verde = Color(0xFF00A878);
   static const Color texto = Color(0xFF172033);
+  static const Color secundario = Color(0xFF8492A6);
+
+  final AnalysisSummary item;
+  final bool selected;
+  final VoidCallback onOpen;
+  final VoidCallback onToggle;
+
+  const _AnalysisCard({
+    required this.item,
+    required this.selected,
+    required this.onOpen,
+    required this.onToggle,
+  });
 
   @override
   Widget build(BuildContext context) {
     return InkWell(
-      onTap: onTap,
+      onTap: onOpen,
       borderRadius: BorderRadius.circular(15),
       child: Container(
-        height: 84,
-        padding: const EdgeInsets.symmetric(horizontal: 14),
+        padding: const EdgeInsets.fromLTRB(12, 12, 8, 12),
         decoration: BoxDecoration(
           color: Colors.white,
-          border: Border.all(color: azulBorde),
+          border: Border.all(
+            color: selected ? azul : azulBorde,
+          ),
           borderRadius: BorderRadius.circular(15),
         ),
         child: Row(
           children: [
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                color: azulClaro,
+                borderRadius: BorderRadius.circular(11),
+              ),
+              child: const Icon(
+                Icons.biotech_outlined,
+                size: 21,
+                color: azul,
+              ),
+            ),
+            const SizedBox(width: 11),
             Expanded(
-              child: Align(
-                alignment: Alignment.bottomLeft,
-                child: Padding(
-                  padding: const EdgeInsets.only(bottom: 14),
-                  child: RichText(
-                    text: TextSpan(
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: texto,
-                      ),
-                      children: [
-                        TextSpan(text: 'Muestra #${item.id} '),
-                        TextSpan(
-                          text: '${item.porcentaje}%',
-                          style: const TextStyle(
-                            color: verde,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    item.sampleId,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: texto,
                     ),
                   ),
-                ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${formatearFecha(item.createdAt)} · '
+                    '${item.totalParticles} partículas',
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: secundario,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 6),
+            Text(
+              '${item.confidencePercent}%',
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: verde,
               ),
             ),
             Checkbox(
-              value: item.selected,
-              onChanged: (_) => onTap(),
+              value: selected,
+              onChanged: (_) => onToggle(),
               activeColor: azul,
               side: const BorderSide(
                 color: Color(0xFFB8CBE0),

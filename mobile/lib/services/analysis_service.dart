@@ -1,31 +1,72 @@
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 
 import '../core/config/app_config.dart';
+import 'session_service.dart';
 
 class AnalysisService {
+  static const Duration _timeout = Duration(seconds: 60);
+
+  static MediaType _contentTypeFor(String filename) {
+    final extension = filename.split('.').last.toLowerCase();
+
+    switch (extension) {
+      case 'png':
+        return MediaType('image', 'png');
+      case 'webp':
+        return MediaType('image', 'webp');
+      case 'heic':
+        return MediaType('image', 'heic');
+      case 'heif':
+        return MediaType('image', 'heif');
+      default:
+        return MediaType('image', 'jpeg');
+    }
+  }
   Future<Map<String, dynamic>> analizarImagen({
     required Uint8List bytes,
     required String filename,
   }) async {
+    final token = await SessionService.getToken();
+
+    if (token == null || token.isEmpty) {
+      throw Exception('Tu sesión expiró. Inicia sesión de nuevo.');
+    }
+
     final request = http.MultipartRequest(
       'POST',
       Uri.parse(AppConfig.analyzeEndpoint),
     );
+
+    request.headers['Authorization'] = 'Bearer $token';
 
     request.files.add(
       http.MultipartFile.fromBytes(
         'file',
         bytes,
         filename: filename,
+        contentType: _contentTypeFor(filename),
       ),
     );
 
-    final response = await request.send();
-    final body = await response.stream.bytesToString();
+    final http.StreamedResponse response;
+
+    try {
+      response = await request.send().timeout(_timeout);
+    } on TimeoutException {
+      throw Exception(
+        'El servidor no respondió. Verifica la conexión e inténtalo de nuevo.',
+      );
+    }
+
+    final body = await response.stream
+        .bytesToString()
+        .timeout(_timeout);
 
     dynamic decoded;
 

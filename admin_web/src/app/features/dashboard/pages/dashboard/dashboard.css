@@ -1,0 +1,479 @@
+:host {
+  display: block;
+  width: 100%;
+}
+
+.dashboard-page {
+  width: 100%;
+  max-width: 1450px;
+}
+
+
+/* =========================
+   ENCABEZADO
+========================= */
+
+.page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+
+  gap: 24px;
+
+  margin-bottom: 28px;
+}
+
+.page-header h1 {
+  margin: 0;
+
+  color: #111825;
+
+  font-size: 28px;
+  font-weight: 700;
+}
+
+.page-header p {
+  margin: 8px 0 0;
+
+  color: #667085;
+
+  font-size: 13px;
+}
+
+
+.admin-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 9px 16px;
+
+  background: #ffffff;
+
+  border: 1px solid #dde5ef;
+  border-radius: 999px;
+
+  color: #0e284a;
+
+  font-size: 11px;
+  font-weight: 600;
+
+  box-shadow:
+    0 4px 12px rgba(14, 40, 74, 0.05);
+}
+
+
+/* =========================
+   ESTADOS
+========================= */
+
+.state-message,
+.error-message {
+  margin-bottom: 24px;
+
+  padding: 18px 20px;
+
+  border-radius: 12px;
+
+  font-size: 12px;
+}
+
+
+.state-message {
+  background: #ffffff;
+  color: #667085;
+
+  border: 1px solid #e3e9f1;
+}
+
+
+.error-message {
+  background: #fff3f3;
+  color: #c62828;
+
+  border: 1px solid #ffd6d6;
+}
+
+
+/* =========================
+   MÉTRICAS
+========================= */
+
+.stats-grid {
+  display: grid;
+
+  grid-template-columns:
+    repeat(4, minmax(0, 1fr));
+
+  gap: 18px;
+
+  margin-bottom: 24px;
+}
+
+
+.stat-card {
+  min-height: 145px;
+
+  padding: 22px;
+
+  background: #ffffff;
+
+  border: 1px solid #e3e9f1;
+  border-radius: 18px;
+
+  box-shadow:
+    0 8px 24px rgba(14, 40, 74, 0.04);
+}
+
+
+.stat-label {
+  color: #667085;
+
+  font-size: 11px;
+  font-weight: 600;
+
+  text-transform: uppercase;
+
+  letter-spacing: 0.03em;
+}
+
+
+.stat-value {
+  margin-top: 14px;
+
+  color: #111825;
+
+  font-size: 32px;
+  font-weight: 700;
+
+  line-height: 1;
+}
+
+
+.stat-description {
+  margin-top: 12px;
+
+  color: #98a2b3;
+
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+
+/* =========================
+   MODELO PRINCIPAL
+========================= */
+
+.model-info {
+  margin-top: 16px;
+}
+
+
+.model-name {
+  color: #111825;
+
+  font-size: 21px;
+  font-weight: 700;
+}
+
+
+.model-status {
+  display: inline-flex;
+  align-items: center;
+
+  gap: 7px;
+
+  margin-top: 12px;
+
+  padding: 6px 10px;
+
+  border-radius: 999px;
+
+  font-size: 10px;
+  font-weight: 600;
+}
+
+
+.model-status.operational {
+  background: #e9f8ef;
+  color: #23824a;
+}
+
+
+.model-status.offline {
+  background: #fff0f0;
+  color: #c62828;
+}
+
+
+.status-dot {
+  width: 7px;
+  height: 7px;
+
+  border-radius: 50%;
+
+  background: currentColor;
+}
+
+
+/* =========================
+   GRID SECUNDARIO
+========================= */
+
+.dashboard-grid {
+  display: grid;
+
+  grid-template-columns:
+    minmax(0, 1.45fr)
+    minmax(380px, 0.85fr);
+
+  gap: 18px;
+
+  align-items: stretch;
+}
+
+
+/* =========================
+   TARJETAS
+========================= */
+
+.dashboard-card {
+  width: 100%;
+
+  padding: 22px;
+
+  background: #ffffff;
+
+  border: 1px solid #e3e9f1;
+  border-radius: 18px;
+
+  box-shadow:
+    0 8px 24px rgba(14, 40, 74, 0.04);
+}
+
+
+.card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+
+  gap: 20px;
+
+  margin-bottom: 22px;
+}
+
+
+.card-header h2 {
+  margin: 0;
+
+  color: #111825;
+
+  font-size: 16px;
+  font-weight: 700;
+}
+
+
+.card-header p {
+  margin: 6px 0 0;
+
+  color: #98a2b3;
+
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+
+/* =========================
+   DISTRIBUCIÓN
+========================= */
+
+.distribution-list {
+  display: flex;
+  flex-direction: column;
+}
+
+
+.distribution-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 20px;
+
+  padding: 17px 0;
+
+  border-bottom:
+    1px solid #edf1f5;
+}
+
+
+.distribution-item:first-child {
+  padding-top: 0;
+}
+
+
+.distribution-item span {
+  color: #475467;
+
+  font-size: 12px;
+}
+
+
+.distribution-item strong {
+  min-width: 36px;
+
+  color: #111825;
+
+  text-align: right;
+
+  font-size: 13px;
+  font-weight: 700;
+}
+
+
+.pending-data {
+  margin-top: 20px;
+
+  padding: 13px 14px;
+
+  background: #f8fafc;
+  color: #98a2b3;
+
+  border: 1px solid #edf1f5;
+  border-radius: 10px;
+
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+
+/* =========================
+   INFORMACIÓN DEL MODELO
+========================= */
+
+.model-detail-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 24px;
+
+  min-height: 48px;
+
+  padding: 13px 0;
+
+  border-bottom:
+    1px solid #edf1f5;
+}
+
+
+.model-detail-row:first-of-type {
+  padding-top: 0;
+}
+
+
+.model-detail-row span {
+  color: #667085;
+
+  font-size: 11px;
+}
+
+
+.model-detail-row strong {
+  color: #111825;
+
+  font-size: 12px;
+  font-weight: 600;
+
+  text-align: right;
+}
+
+
+.success-text {
+  color: #23824a !important;
+}
+
+
+.error-text {
+  color: #c62828 !important;
+}
+
+
+/* =========================
+   ADVERTENCIA MODELO BASE
+========================= */
+
+.model-warning {
+  margin-top: 18px;
+
+  padding: 13px 14px;
+
+  background: #fff9ec;
+  color: #8a5a00;
+
+  border: 1px solid #f5dfad;
+  border-radius: 10px;
+
+  font-size: 10px;
+  line-height: 1.55;
+}
+
+
+/* =========================
+   RESPONSIVE
+========================= */
+
+@media (max-width: 1200px) {
+
+  .stats-grid {
+    grid-template-columns:
+      repeat(2, minmax(0, 1fr));
+  }
+
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+
+}
+
+
+@media (max-width: 800px) {
+
+  .page-header {
+    flex-direction: column;
+  }
+
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+}
+
+
+@media (max-width: 600px) {
+
+  .page-header h1 {
+    font-size: 24px;
+  }
+
+  .stat-card,
+  .dashboard-card {
+    border-radius: 14px;
+  }
+
+  .stat-value {
+    font-size: 28px;
+  }
+
+  .model-detail-row {
+    align-items: flex-start;
+    flex-direction: column;
+
+    gap: 6px;
+  }
+
+  .model-detail-row strong {
+    text-align: left;
+  }
+
+}

@@ -1,0 +1,49 @@
+<aside class="sidebar">
+
+  <div class="sidebar-brand">
+    <h1>MicroplastIA</h1>
+    <span>Panel administrativo</span>
+  </div>
+
+  <nav class="sidebar-nav">
+
+    <a
+      routerLink="/dashboard"
+      routerLinkActive="active"
+      class="nav-item"
+    >
+      Dashboard
+    </a>
+
+    <a
+      routerLink="/muestras"
+      routerLinkActive="active"
+      class="nav-item"
+    >
+      Muestras
+    </a>
+
+    <a
+      routerLink="/usuarios"
+      routerLinkActive="active"
+      class="nav-item"
+    >
+      Usuarios
+    </a>
+
+  </nav>
+
+  <div class="sidebar-footer">
+
+    <button
+      class="logout-button"
+      type="button"
+      (click)="cerrarSesion()"
+    >
+      <span class="logout-icon">↪</span>
+      <span>Cerrar sesión</span>
+    </button>
+
+  </div>
+
+</aside>
