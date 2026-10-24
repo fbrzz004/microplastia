@@ -26,7 +26,6 @@ class AnalysisDetection {
 class AnalysisSummary {
   final int id;
   final String sampleId;
-  final String? filename;
   final DateTime? createdAt;
   final int totalParticles;
   final double confidence;
@@ -35,7 +34,6 @@ class AnalysisSummary {
   const AnalysisSummary({
     required this.id,
     required this.sampleId,
-    required this.filename,
     required this.createdAt,
     required this.totalParticles,
     required this.confidence,
@@ -46,7 +44,6 @@ class AnalysisSummary {
     return AnalysisSummary(
       id: _toInt(json['id']),
       sampleId: json['sample_id']?.toString() ?? '',
-      filename: json['filename']?.toString(),
       createdAt: DateTime.tryParse(json['created_at']?.toString() ?? ''),
       totalParticles: _toInt(json['total_particles']),
       confidence: _toDouble(json['confidence']),
@@ -66,7 +63,6 @@ class AnalysisDetail extends AnalysisSummary {
   const AnalysisDetail({
     required super.id,
     required super.sampleId,
-    required super.filename,
     required super.createdAt,
     required super.totalParticles,
     required super.confidence,
@@ -82,7 +78,6 @@ class AnalysisDetail extends AnalysisSummary {
     return AnalysisDetail(
       id: summary.id,
       sampleId: summary.sampleId,
-      filename: summary.filename,
       createdAt: summary.createdAt,
       totalParticles: summary.totalParticles,
       confidence: summary.confidence,

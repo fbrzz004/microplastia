@@ -62,7 +62,6 @@ def test_history_lists_analyses_of_the_user(client, auth_headers):
     item = body["data"]["items"][0]
     assert item["id"] == analysis["result_id"]
     assert item["sample_id"] == sample_id
-    assert item["filename"] == "muestra.jpg"
     assert item["total_particles"] == analysis["total_particles"]
     assert item["created_at"]
 

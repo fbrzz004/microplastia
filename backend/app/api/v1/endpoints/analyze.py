@@ -67,7 +67,6 @@ async def analyze_sample(
     registro = save_analysis(
         db,
         result=result,
-        filename=file.filename,
         user_id=usuario.id_usuario,
     )
     result.result_id = registro.id_resultado

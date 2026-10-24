@@ -1,7 +1,6 @@
 from datetime import datetime
 from typing import Optional, Sequence
 
-from sqlalchemy import or_
 from sqlalchemy.orm import Session, joinedload
 
 from app.models.result import ResultadoAnalisis
@@ -13,14 +12,13 @@ from app.schemas.history import HistoryDetail, HistoryItem
 def save_analysis(
     db: Session,
     result: AnalysisData,
-    filename: Optional[str],
     user_id: Optional[int],
 ) -> ResultadoAnalisis:
     """Guarda la muestra y su resultado de inferencia."""
 
     muestra = Muestra(
-        codigo=result.sample_id,
-        nombre_archivo=filename,
+        descripcion=result.sample_id,
+        estado="Analizada",
         id_usuario=user_id,
     )
     db.add(muestra)
@@ -60,12 +58,7 @@ def list_results(
 
     if query:
         patron = f"%{query.strip()}%"
-        consulta = consulta.filter(
-            or_(
-                Muestra.codigo.ilike(patron),
-                Muestra.nombre_archivo.ilike(patron),
-            )
-        )
+        consulta = consulta.filter(Muestra.descripcion.ilike(patron))
 
     total = consulta.count()
     registros = (
@@ -100,18 +93,23 @@ def get_result(
     )
 
 
-def _created_at(registro: ResultadoAnalisis) -> datetime:
-    fecha = registro.fecha_creacion or registro.muestra.fecha_creacion
-    return fecha
+def _created_at(registro: ResultadoAnalisis) -> Optional[datetime]:
+    return registro.fecha_creacion or registro.muestra.fecha_registro
+
+
+def _sample_id(registro: ResultadoAnalisis) -> str:
+    muestra = registro.muestra
+
+    if muestra.descripcion:
+        return muestra.descripcion
+
+    return f"MUESTRA-{muestra.id_muestra:04d}"
 
 
 def to_history_item(registro: ResultadoAnalisis) -> HistoryItem:
-    muestra = registro.muestra
-
     return HistoryItem(
         id=registro.id_resultado,
-        sample_id=muestra.codigo,
-        filename=muestra.nombre_archivo,
+        sample_id=_sample_id(registro),
         created_at=_created_at(registro),
         total_particles=registro.total_particulas,
         confidence=registro.confianza_promedio,

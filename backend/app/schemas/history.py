@@ -11,8 +11,7 @@ class HistoryItem(BaseModel):
 
     id: int
     sample_id: str
-    filename: Optional[str] = None
-    created_at: datetime
+    created_at: Optional[datetime] = None
     total_particles: int
     confidence: float
     annotated_image_url: Optional[str] = None

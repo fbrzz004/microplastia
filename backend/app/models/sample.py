@@ -1,28 +1,34 @@
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, func
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text, func
 from sqlalchemy.orm import relationship
 
 from app.db.session import Base
 
 
 class Muestra(Base):
-    """Imagen microscópica enviada al backend para su análisis."""
+    """Imagen microscópica enviada al backend para su análisis.
+
+    La tabla `muestra` ya existe en la base desplegada. Sus columnas
+    (`descripcion`, `estado`, `fecha_registro`, `imagen_url`) son las que
+    usa el esquema de Supabase, por lo que el modelo debe respetarlas.
+    """
 
     __tablename__ = "muestra"
 
     id_muestra = Column(Integer, primary_key=True, index=True)
-    codigo = Column(String(50), nullable=False, index=True)
-    nombre_archivo = Column(String(255), nullable=True)
     id_usuario = Column(
         Integer,
         ForeignKey("usuario.id_usuario"),
-        nullable=True,
+        nullable=False,
         index=True,
     )
-    fecha_creacion = Column(
-        DateTime(timezone=True),
+    fecha_registro = Column(
+        DateTime,
         server_default=func.now(),
-        nullable=False,
+        nullable=True,
     )
+    imagen_url = Column(String(500), nullable=True)
+    descripcion = Column(Text, nullable=True)
+    estado = Column(String(30), nullable=True)
 
     resultados = relationship(
         "ResultadoAnalisis",

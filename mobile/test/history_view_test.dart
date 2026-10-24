@@ -44,7 +44,6 @@ void main() {
       AnalysisSummary(
         id: 12,
         sampleId: 'MUESTRA-AB12CD34',
-        filename: 'muestra.jpg',
         createdAt: DateTime(2026, 10, 22, 14, 30),
         totalParticles: 14,
         confidence: 0.87,
