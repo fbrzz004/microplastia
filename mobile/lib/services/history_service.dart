@@ -1,12 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
-<<<<<<< Updated upstream
-
 import 'package:http/http.dart' as http;
-
-=======
-import 'package:http/http.dart' as http;
->>>>>>> Stashed changes
 import '../core/config/app_config.dart';
 import '../models/analysis_result.dart';
 import 'session_service.dart';
@@ -125,11 +119,8 @@ class HistoryService {
 
     return Map<String, dynamic>.from(data);
   }
-<<<<<<< Updated upstream
-=======
-  
+
   void dispose() {
     _client.close();
   }
->>>>>>> Stashed changes
 }
