@@ -14,7 +14,8 @@ from app.services.auth_service import (
     authenticate_user
 )
 from app.core.security import create_access_token
-
+from app.core.security import get_current_user
+from app.models.user import Usuario
 
 router = APIRouter(
     prefix="/auth",
@@ -92,3 +93,12 @@ def login(
         "token_type": "bearer",
         "usuario": usuario
     }
+
+@router.get(
+    "/me",
+    response_model=UsuarioResponse,
+)
+def get_my_profile(
+    current_user: Usuario = Depends(get_current_user),
+):
+    return current_user
