@@ -1,14 +1,30 @@
+<<<<<<< Updated upstream
 
 import 'package:flutter/material.dart';
+=======
+<<<<<<< Updated upstream
+=======
+import 'package:flutter/material.dart';
+>>>>>>> Stashed changes
+>>>>>>> Stashed changes
 import 'package:go_router/go_router.dart';
-
 import '../views/login_view.dart';
 import '../views/register_view.dart';
 import '../views/home_view.dart';
 import '../views/analysis_view.dart';
 import '../views/result_view.dart';
 import '../views/history_view.dart';
+<<<<<<< Updated upstream
 import '../views/history_detail_view.dart';
+=======
+<<<<<<< Updated upstream
+=======
+import '../views/history_detail_view.dart';
+import '../views/profile_view.dart';
+import '../views/edit_profile_view.dart';
+import '../views/change_password_view.dart';
+>>>>>>> Stashed changes
+>>>>>>> Stashed changes
 
 GoRouter createRouter(bool hasSession) {
   return GoRouter(
@@ -23,6 +39,18 @@ GoRouter createRouter(bool hasSession) {
         path: '/register',
         builder: (context, state) => const RegisterView(),
       ),
+<<<<<<< Updated upstream
+=======
+<<<<<<< Updated upstream
+      GoRoute(
+        path: '/home',
+        builder: (context, state) => const HomeView(),
+      ),
+      GoRoute(
+        path: '/analysis',
+        builder: (context, state) => const AnalysisView(),
+=======
+>>>>>>> Stashed changes
 
       // Pantallas principales: con barra inferior.
       StatefulShellRoute.indexedStack(
@@ -53,10 +81,51 @@ GoRouter createRouter(bool hasSession) {
               GoRoute(
                 path: '/history',
                 builder: (context, state) => const HistoryView(),
+<<<<<<< Updated upstream
+=======
+                routes: [
+                  GoRoute(
+                    path: ':id',
+                    builder: (context, state) {
+                      final id = int.tryParse(
+                        state.pathParameters['id'] ?? '',
+                      );
+
+                      if (id == null) {
+                        return const HistoryView();
+                      }
+
+                      return HistoryDetailView(resultId: id);
+                    },
+                  ),
+                ],
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/profile',
+                builder: (context, state) => const ProfileView(),
+                routes: [
+                  GoRoute(
+                    path: 'edit',
+                    builder: (context, state) => const EditProfileView(),
+                  ),
+                  GoRoute(
+                    path: 'password',
+                    builder: (context, state) => const ChangePasswordView(),
+                  ),
+                ],
+>>>>>>> Stashed changes
               ),
             ],
           ),
         ],
+<<<<<<< Updated upstream
+=======
+>>>>>>> Stashed changes
+>>>>>>> Stashed changes
       ),
 
       GoRoute(
@@ -78,6 +147,12 @@ GoRouter createRouter(bool hasSession) {
       ),
     ],
   );
+<<<<<<< Updated upstream
+=======
+<<<<<<< Updated upstream
+}
+=======
+>>>>>>> Stashed changes
 }
 
 class DashboardWrapper extends StatelessWidget {
@@ -93,6 +168,7 @@ class DashboardWrapper extends StatelessWidget {
   static const Color gris = Color(0xFF8290A5);
 
   void _navegar(BuildContext context, int index) {
+<<<<<<< Updated upstream
     // Perfil todavía no tiene una pantalla.
     if (index == 3) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -105,6 +181,8 @@ class DashboardWrapper extends StatelessWidget {
       return;
     }
 
+=======
+>>>>>>> Stashed changes
     navigationShell.goBranch(
       index,
       initialLocation:
@@ -169,7 +247,11 @@ class DashboardWrapper extends StatelessWidget {
                 icono: Icons.person_outline_rounded,
                 iconoActivo: Icons.person_rounded,
                 texto: 'Perfil',
+<<<<<<< Updated upstream
                 seleccionado: false,
+=======
+                seleccionado: navigationShell.currentIndex == 3,
+>>>>>>> Stashed changes
                 onTap: () => _navegar(context, 3),
               ),
             ],
@@ -254,3 +336,7 @@ class _ItemNavegacion extends StatelessWidget {
     );
   }
 }
+<<<<<<< Updated upstream
+=======
+>>>>>>> Stashed changes
+>>>>>>> Stashed changes

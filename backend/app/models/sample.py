@@ -35,7 +35,7 @@ class Muestra(Base):
     )
 
     imagen_url = Column(
-        String(255),
+        String(500),
         nullable=True
     )
 
@@ -45,7 +45,7 @@ class Muestra(Base):
     )
 
     estado = Column(
-        String(50),
+        String(30),
         nullable=True
     )
 

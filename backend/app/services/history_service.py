@@ -1,7 +1,6 @@
 from datetime import datetime
 from typing import Optional, Sequence
 
-from sqlalchemy import or_
 from sqlalchemy.orm import Session, joinedload
 
 from app.models.result import ResultadoAnalisis
@@ -13,7 +12,6 @@ from app.schemas.history import HistoryDetail, HistoryItem
 def save_analysis(
     db: Session,
     result: AnalysisData,
-    filename: Optional[str],
     user_id: Optional[int],
 ) -> ResultadoAnalisis:
 
@@ -80,9 +78,7 @@ def list_results(
         patron = f"%{query.strip()}%"
 
         consulta = consulta.filter(
-            or_(
-                Muestra.descripcion.ilike(patron)
-            )
+            Muestra.descripcion.ilike(patron)
         )
 
     total = consulta.count()
@@ -123,14 +119,12 @@ def get_result(
 
 def _created_at(
     registro: ResultadoAnalisis
-) -> datetime:
+) -> Optional[datetime]:
 
-    fecha = (
+    return (
         registro.fecha_creacion
         or registro.muestra.fecha_registro
     )
-
-    return fecha
 
 
 def to_history_item(
@@ -147,10 +141,6 @@ def to_history_item(
     return HistoryItem(
         id=registro.id_resultado,
         sample_id=sample_id,
-
-        # La tabla real no tiene nombre_archivo
-        filename=None,
-
         created_at=_created_at(registro),
         total_particles=registro.total_particulas,
         confidence=registro.confianza_promedio,
