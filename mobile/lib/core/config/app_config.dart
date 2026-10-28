@@ -38,4 +38,7 @@ class AppConfig {
 
   static String get registerEndpoint =>
       '$apiBaseUrl$apiPrefix/auth/register';
+
+  static String get profileEndpoint =>
+      '$apiBaseUrl$apiPrefix/users/me';
 }
