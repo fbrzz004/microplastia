@@ -3,24 +3,33 @@ import 'package:flutter/foundation.dart';
 import '../core/utils/format.dart';
 import '../models/analysis_result.dart';
 import '../services/history_service.dart';
+import '../services/report_service.dart';
 
 class HistoryViewModel extends ChangeNotifier {
-  HistoryViewModel({HistoryService? service})
-      : _service = service ?? HistoryService();
+  HistoryViewModel({
+    HistoryService? service,
+    ReportService? reportService,
+  })  : _service = service ?? HistoryService(),
+        _reportService = reportService ?? ReportService();
 
   final HistoryService _service;
+  final ReportService _reportService;
 
   List<AnalysisSummary> _items = const [];
   bool _isLoading = false;
   bool _hasLoaded = false;
+  bool _isGeneratingReport = false;
   String? _errorMessage;
+  String? _reportError;
   String _busqueda = '';
   final Set<int> _seleccionados = <int>{};
 
   List<AnalysisSummary> get items => List.unmodifiable(_items);
   bool get isLoading => _isLoading;
   bool get hasLoaded => _hasLoaded;
+  bool get isGeneratingReport => _isGeneratingReport;
   String? get errorMessage => _errorMessage;
+  String? get reportError => _reportError;
   String get busqueda => _busqueda;
   int get cantidadSeleccionada => _seleccionados.length;
 
@@ -91,5 +100,40 @@ class HistoryViewModel extends ChangeNotifier {
     }
 
     notifyListeners();
+  }
+
+  Future<String?> generarReporte() async {
+    if (_isGeneratingReport) return null;
+
+    if (_seleccionados.isEmpty) {
+      _reportError = 'Selecciona al menos un análisis.';
+      notifyListeners();
+      return null;
+    }
+
+    _isGeneratingReport = true;
+    _reportError = null;
+    notifyListeners();
+
+    try {
+      final report = await _reportService.generate(
+        (_seleccionados.toList()..sort()),
+      );
+
+      return report.reportUrl;
+    } catch (e) {
+      _reportError = e.toString().replaceFirst('Exception: ', '');
+      return null;
+    } finally {
+      _isGeneratingReport = false;
+      notifyListeners();
+    }
+  }
+
+  @override
+  void dispose() {
+    _service.dispose();
+    _reportService.dispose();
+    super.dispose();
   }
 }

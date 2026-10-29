@@ -41,4 +41,7 @@ class AppConfig {
 
   static String get profileEndpoint =>
       '$apiBaseUrl$apiPrefix/users/me';
+
+  static String get reportsEndpoint =>
+      '$apiBaseUrl$apiPrefix/reports';
 }

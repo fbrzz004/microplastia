@@ -16,7 +16,6 @@ class _HomeViewState extends State<HomeView> {
   static const Color azul = Color(0xFF1976E9);
   static const Color oscuro = Color(0xFF203653);
   static const Color gris = Color(0xFF8290A5);
-  static const Color borde = Color(0xFFE0E8F3);
 
   @override
   void initState() {

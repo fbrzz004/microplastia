@@ -8,19 +8,9 @@ psycopg2-binary==2.9.10
 passlib==1.7.4
 bcrypt==4.0.1
 python-jose[cryptography]
-<<<<<<< Updated upstream
-=======
-<<<<<<< Updated upstream
-email-validator
-=======
->>>>>>> Stashed changes
 email-validator
 ultralytics>=8.3.0
 opencv-python-headless>=4.10.0
 numpy>=1.26.0
 pillow>=10.0.0
-<<<<<<< Updated upstream
-=======
-alembic==1.11.1
->>>>>>> Stashed changes
->>>>>>> Stashed changes
+reportlab==5.1.0

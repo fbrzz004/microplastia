@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
+import '../core/config/app_config.dart';
 import '../core/utils/format.dart';
 import '../models/analysis_result.dart';
 import '../viewmodels/history_viewmodel.dart';
@@ -38,14 +40,73 @@ class _HistoryViewState extends State<HistoryView> {
     super.dispose();
   }
 
-  void _generarReporte(int cantidad) {
-    final mensaje = cantidad == 0
-        ? 'Selecciona al menos un análisis.'
-        : 'Has seleccionado $cantidad análisis. '
-            'La generación del reporte estará disponible pronto.';
+  Future<void> _generarReporte(HistoryViewModel viewModel) async {
+    if (viewModel.cantidadSeleccionada == 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Selecciona al menos un análisis.'),
+        ),
+      );
+      return;
+    }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(mensaje)),
+    final reportUrl = await viewModel.generarReporte();
+
+    if (!mounted) return;
+
+    if (reportUrl == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            viewModel.reportError ?? 'No se pudo generar el reporte.',
+          ),
+        ),
+      );
+      return;
+    }
+
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Reporte generado'),
+        content: Text(
+          'Se generó el reporte con '
+          '${viewModel.cantidadSeleccionada} análisis.\n\n'
+          'Puedes abrir el PDF desde el navegador.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Cerrar'),
+          ),
+          FilledButton.icon(
+            onPressed: () async {
+              final uri = Uri.parse(
+                '${AppConfig.apiBaseUrl}$reportUrl',
+              );
+              final opened = await launchUrl(
+                uri,
+                mode: LaunchMode.externalApplication,
+              );
+
+              if (!dialogContext.mounted) return;
+
+              if (opened) {
+                Navigator.of(dialogContext).pop();
+                return;
+              }
+
+              ScaffoldMessenger.of(dialogContext).showSnackBar(
+                const SnackBar(
+                  content: Text('No se pudo abrir el PDF.'),
+                ),
+              );
+            },
+            icon: const Icon(Icons.open_in_new, size: 18),
+            label: const Text('Abrir PDF'),
+          ),
+        ],
+      ),
     );
   }
 
@@ -83,23 +144,50 @@ class _HistoryViewState extends State<HistoryView> {
                     height: 47,
                     width: double.infinity,
                     child: ElevatedButton(
-                      onPressed: () =>
-                          _generarReporte(viewModel.cantidadSeleccionada),
+                      onPressed: viewModel.isGeneratingReport
+                          ? null
+                          : () => _generarReporte(viewModel),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: azul,
                         foregroundColor: Colors.white,
+                        disabledBackgroundColor:
+                            azul.withValues(alpha: 0.6),
+                        disabledForegroundColor: Colors.white,
                         elevation: 0,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
-                      child: Text(
-                        'Generar reporte (${viewModel.cantidadSeleccionada})',
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
+                      child: viewModel.isGeneratingReport
+                          ? const Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                                SizedBox(width: 10),
+                                Text(
+                                  'Generando reporte...',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            )
+                          : Text(
+                              'Generar reporte '
+                              '(${viewModel.cantidadSeleccionada})',
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
                     ),
                   ),
                 ],
