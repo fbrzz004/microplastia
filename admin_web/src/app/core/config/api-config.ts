@@ -1,5 +1,5 @@
 export const API_CONFIG = {
-  baseUrl: 'http://127.0.0.1:8000',
+  baseUrl: 'https://microplastia-api.onrender.com',
   apiPrefix: '/api/v1',
   timeoutMs: 15000
 };
