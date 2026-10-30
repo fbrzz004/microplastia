@@ -1,3 +1,4 @@
+import gc
 import time
 import uuid
 from pathlib import Path
@@ -39,19 +40,13 @@ MAPEO_CLASES = {
 }
 
 
-def _clasificar(
-    nombre_crudo: str,
-) -> str:
-
+def _clasificar(nombre_crudo: str) -> str:
     nombre = (
         nombre_crudo
         or ""
     ).strip().lower()
 
-    for clave, categoria in (
-        MAPEO_CLASES.items()
-    ):
-
+    for clave, categoria in MAPEO_CLASES.items():
         if clave in nombre:
             return categoria
 
@@ -68,10 +63,7 @@ def _clasificar(
 class InferenceService:
 
     def __init__(self):
-
-        self.model: Optional[
-            YOLO
-        ] = None
+        self.model: Optional[YOLO] = None
 
         self.model_path = (
             self._resolve_model_path()
@@ -80,10 +72,11 @@ class InferenceService:
         self._load_model()
 
 
-    def _resolve_model_path(
-        self,
-    ) -> Path:
+    # ------------------------------------------------------
+    # RESOLVER RUTA DEL MODELO
+    # ------------------------------------------------------
 
+    def _resolve_model_path(self) -> Path:
         base_dir = (
             Path(__file__)
             .resolve()
@@ -93,14 +86,15 @@ class InferenceService:
         )
 
         possible_paths = [
-            Path(
-                settings.model_path
-            ),
+            Path(settings.model_path),
+
             base_dir
             / settings.model_path,
+
             base_dir
             / "weights"
             / "best.pt",
+
             base_dir
             / "app"
             / "weights"
@@ -108,12 +102,10 @@ class InferenceService:
         ]
 
         for path in possible_paths:
-
             if (
                 path.exists()
                 and path.is_file()
             ):
-
                 return path
 
         return (
@@ -123,23 +115,76 @@ class InferenceService:
         )
 
 
-    def _load_model(
-        self,
-    ) -> None:
+    # ------------------------------------------------------
+    # CARGAR MODELO UNA SOLA VEZ
+    # ------------------------------------------------------
 
+    def _load_model(self) -> None:
         if not self.model_path.exists():
-
             raise RuntimeError(
                 "No se encontró el modelo "
                 "de inferencia configurado."
             )
 
         self.model = YOLO(
-            str(
-                self.model_path
-            )
+            str(self.model_path)
         )
 
+
+    # ------------------------------------------------------
+    # REDUCIR IMAGEN PARA INFERENCIA
+    # ------------------------------------------------------
+
+    @staticmethod
+    def _resize_for_inference(
+        image,
+        max_dimension: int = 960,
+    ):
+        """
+        Reduce imágenes muy grandes antes de enviarlas
+        al modelo para disminuir consumo de RAM.
+
+        No amplía imágenes pequeñas.
+        """
+
+        height, width = image.shape[:2]
+
+        largest_dimension = max(
+            width,
+            height,
+        )
+
+        if largest_dimension <= max_dimension:
+            return image
+
+        scale = (
+            max_dimension
+            / largest_dimension
+        )
+
+        new_width = max(
+            1,
+            int(width * scale),
+        )
+
+        new_height = max(
+            1,
+            int(height * scale),
+        )
+
+        return cv2.resize(
+            image,
+            (
+                new_width,
+                new_height,
+            ),
+            interpolation=cv2.INTER_AREA,
+        )
+
+
+    # ------------------------------------------------------
+    # PREDICCIÓN
+    # ------------------------------------------------------
 
     def predict(
         self,
@@ -148,9 +193,13 @@ class InferenceService:
         sample_id: Optional[str] = None,
     ) -> AnalysisData:
 
-        start_time = (
-            time.perf_counter()
-        )
+        start_time = time.perf_counter()
+
+        if self.model is None:
+            raise RuntimeError(
+                "El modelo de inferencia "
+                "no está cargado."
+            )
 
 
         # --------------------------------------------------
@@ -158,7 +207,6 @@ class InferenceService:
         # --------------------------------------------------
 
         if not sample_id:
-
             sample_id = (
                 "MUESTRA-"
                 f"{uuid.uuid4().hex[:8].upper()}"
@@ -175,9 +223,12 @@ class InferenceService:
             )
         )
 
+        # Los bytes originales ya no son necesarios.
+        del image_bytes
+
 
         # --------------------------------------------------
-        # GUARDAR ORIGINAL NORMALIZADO
+        # GUARDAR ORIGINAL
         # --------------------------------------------------
 
         original_image_url = (
@@ -189,17 +240,44 @@ class InferenceService:
 
 
         # --------------------------------------------------
-        # INFERENCIA
+        # REDUCIR IMAGEN PARA YOLO
+        # --------------------------------------------------
+
+        inference_image = (
+            self._resize_for_inference(
+                img_bgr,
+                max_dimension=960,
+            )
+        )
+
+        # Si resize generó otra imagen,
+        # podemos liberar la original.
+        if inference_image is not img_bgr:
+            del img_bgr
+            gc.collect()
+
+        img_bgr = inference_image
+
+
+        # --------------------------------------------------
+        # INFERENCIA OPTIMIZADA
         # --------------------------------------------------
 
         results = self.model.predict(
             source=img_bgr,
-            conf=(
-                settings
-                .confidence_threshold
-            ),
-            imgsz=640,
+            conf=settings.confidence_threshold,
+
+            # Antes estaba en 640.
+            # 416 consume bastante menos RAM.
+            imgsz=416,
+
+            # Render no tiene GPU.
+            device="cpu",
+
             verbose=False,
+
+            # Solo necesitamos una imagen.
+            stream=False,
         )
 
 
@@ -302,7 +380,7 @@ class InferenceService:
 
 
                 # ------------------------------------------
-                # DIBUJAR
+                # DIBUJAR DETECCIÓN
                 # ------------------------------------------
 
                 x1, y1, x2, y2 = [
@@ -314,8 +392,7 @@ class InferenceService:
 
                 color = (
                     (0, 165, 255)
-                    if class_name
-                    == "fibra"
+                    if class_name == "fibra"
                     else (0, 255, 0)
                 )
 
@@ -359,21 +436,29 @@ class InferenceService:
 
 
         avg_confidence = (
-
             round(
                 sum(confidences)
                 / len(confidences),
                 4,
             )
-
             if confidences
-
             else 0.0
         )
 
 
         # --------------------------------------------------
-        # GUARDAR ANOTADA
+        # LIBERAR OBJETOS DE YOLO
+        # --------------------------------------------------
+
+        del boxes
+        del result
+        del results
+
+        gc.collect()
+
+
+        # --------------------------------------------------
+        # GUARDAR IMAGEN ANOTADA
         # --------------------------------------------------
 
         annotated_image_url = (
@@ -383,6 +468,17 @@ class InferenceService:
             )
         )
 
+
+        # Ya no necesitamos la imagen.
+        del img_bgr
+        del inference_image
+
+        gc.collect()
+
+
+        # --------------------------------------------------
+        # TIEMPO
+        # --------------------------------------------------
 
         elapsed_ms = round(
             (
@@ -394,28 +490,43 @@ class InferenceService:
         )
 
 
+        # --------------------------------------------------
+        # RESPUESTA
+        # --------------------------------------------------
+
         return AnalysisData(
             sample_id=sample_id,
+
             total_particles=(
                 total_particles
             ),
+
             confidence=(
                 avg_confidence
             ),
+
             breakdown=breakdown,
+
             detections=detections,
+
             processing_time_ms=(
                 elapsed_ms
             ),
+
             original_image_url=(
                 original_image_url
             ),
+
             annotated_image_url=(
                 annotated_image_url
             ),
         )
 
 
-inference_service = (
-    InferenceService()
-)
+# ==========================================================
+# INSTANCIA GLOBAL
+# ==========================================================
+
+# Se carga una sola vez al iniciar FastAPI.
+# No se crea un modelo nuevo por cada petición.
+inference_service = InferenceService()
