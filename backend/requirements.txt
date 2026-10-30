@@ -25,4 +25,4 @@ pillow-heif
 
 alembic==1.11.1
 
-supabase
+supabase==2.16.0
