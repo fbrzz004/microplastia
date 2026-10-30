@@ -30,14 +30,14 @@ def _other_user(client, correo: str) -> dict:
         json={
             "nombre": "Otro",
             "correo": correo,
-            "password": "Secreta123",
+            "password": "Secreta123!",
         },
     )
     assert registro.status_code == 201, registro.text
 
     login = client.post(
         "/api/v1/auth/login",
-        json={"correo": correo, "password": "Secreta123"},
+        json={"correo": correo, "password": "Secreta123!"},
     )
     assert login.status_code == 200, login.text
 

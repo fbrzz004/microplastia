@@ -1,14 +1,9 @@
 <section class="dashboard-page">
 
-  <!-- =============================
-       ENCABEZADO
-  ============================== -->
-
   <div class="page-header">
 
     <div>
       <h1>Dashboard</h1>
-
       <p>
         Resumen general del sistema MicroplastIA.
       </p>
@@ -21,47 +16,23 @@
   </div>
 
 
-  <!-- =============================
-       CARGANDO
-  ============================== -->
-
   @if (cargando) {
-
     <div class="state-message">
       Cargando información...
     </div>
-
   }
 
 
-  <!-- =============================
-       ERROR
-  ============================== -->
-
   @if (error) {
-
     <div class="error-message">
       {{ error }}
     </div>
-
   }
 
 
-  <!-- =============================
-       DASHBOARD
-  ============================== -->
-
   @if (!cargando && !error && datos) {
 
-
-    <!-- =============================
-         MÉTRICAS PRINCIPALES
-    ============================== -->
-
     <div class="stats-grid">
-
-
-      <!-- MUESTRAS -->
 
       <div class="stat-card">
 
@@ -80,8 +51,6 @@
       </div>
 
 
-      <!-- PARTÍCULAS -->
-
       <div class="stat-card">
 
         <div class="stat-label">
@@ -99,8 +68,6 @@
       </div>
 
 
-      <!-- USUARIOS -->
-
       <div class="stat-card">
 
         <div class="stat-label">
@@ -117,8 +84,6 @@
 
       </div>
 
-
-      <!-- MODELO -->
 
       <div class="stat-card">
 
@@ -155,23 +120,13 @@
     </div>
 
 
-    <!-- =============================
-         CONTENIDO SECUNDARIO
-    ============================== -->
-
     <div class="dashboard-grid">
-
-
-      <!-- =============================
-           DISTRIBUCIÓN
-      ============================== -->
 
       <div class="dashboard-card">
 
         <div class="card-header">
 
           <div>
-
             <h2>
               Distribución de detecciones
             </h2>
@@ -179,63 +134,189 @@
             <p>
               Clasificación acumulada de microplásticos detectados.
             </p>
-
           </div>
 
         </div>
 
 
-        <div class="distribution-list">
+        <div class="distribution-chart">
 
+          <!-- FIBRAS -->
 
-          <div class="distribution-item">
+          <div class="chart-row">
 
-            <span>
-              Fibras
-            </span>
+            <div class="chart-top">
 
-            <strong>
-              {{ datos.distribucion.fibra }}
-            </strong>
+              <span class="chart-label">
+                Fibras
+              </span>
+
+              <div class="chart-values">
+
+                <strong>
+                  {{ datos.distribucion.fibra }}
+                </strong>
+
+                <span>
+                  {{
+                    datos.particulas_detectadas > 0
+                      ? (datos.distribucion.fibra / datos.particulas_detectadas * 100 | number:'1.0-0')
+                      : 0
+                  }}%
+                </span>
+
+              </div>
+
+            </div>
+
+            <div class="bar-background">
+
+              <div
+                class="bar bar-fibra"
+                [style.width.%]="
+                  datos.particulas_detectadas > 0
+                    ? datos.distribucion.fibra / datos.particulas_detectadas * 100
+                    : 0
+                "
+              >
+              </div>
+
+            </div>
 
           </div>
 
 
-          <div class="distribution-item">
+          <!-- FRAGMENTOS -->
 
-            <span>
-              Fragmentos
-            </span>
+          <div class="chart-row">
 
-            <strong>
-              {{ datos.distribucion.fragmento }}
-            </strong>
+            <div class="chart-top">
+
+              <span class="chart-label">
+                Fragmentos
+              </span>
+
+              <div class="chart-values">
+
+                <strong>
+                  {{ datos.distribucion.fragmento }}
+                </strong>
+
+                <span>
+                  {{
+                    datos.particulas_detectadas > 0
+                      ? (datos.distribucion.fragmento / datos.particulas_detectadas * 100 | number:'1.0-0')
+                      : 0
+                  }}%
+                </span>
+
+              </div>
+
+            </div>
+
+            <div class="bar-background">
+
+              <div
+                class="bar bar-fragmento"
+                [style.width.%]="
+                  datos.particulas_detectadas > 0
+                    ? datos.distribucion.fragmento / datos.particulas_detectadas * 100
+                    : 0
+                "
+              >
+              </div>
+
+            </div>
 
           </div>
 
 
-          <div class="distribution-item">
+          <!-- GRÁNULOS -->
 
-            <span>
-              Gránulos
-            </span>
+          <div class="chart-row">
 
-            <strong>
-              {{ datos.distribucion['gránulo'] }}
-            </strong>
+            <div class="chart-top">
+
+              <span class="chart-label">
+                Gránulos
+              </span>
+
+              <div class="chart-values">
+
+                <strong>
+                  {{ datos.distribucion['gránulo'] }}
+                </strong>
+
+                <span>
+                  {{
+                    datos.particulas_detectadas > 0
+                      ? (datos.distribucion['gránulo'] / datos.particulas_detectadas * 100 | number:'1.0-0')
+                      : 0
+                  }}%
+                </span>
+
+              </div>
+
+            </div>
+
+            <div class="bar-background">
+
+              <div
+                class="bar bar-granulo"
+                [style.width.%]="
+                  datos.particulas_detectadas > 0
+                    ? datos.distribucion['gránulo'] / datos.particulas_detectadas * 100
+                    : 0
+                "
+              >
+              </div>
+
+            </div>
 
           </div>
 
 
-          <div class="distribution-item">
+          <!-- PELÍCULAS -->
 
-            <span>
-              Películas
-            </span>
+          <div class="chart-row">
 
-            <strong>
-              {{ datos.distribucion['película'] }}
-            </strong>
+            <div class="chart-top">
+
+              <span class="chart-label">
+                Películas
+              </span>
+
+              <div class="chart-values">
+
+                <strong>
+                  {{ datos.distribucion['película'] }}
+                </strong>
+
+                <span>
+                  {{
+                    datos.particulas_detectadas > 0
+                      ? (datos.distribucion['película'] / datos.particulas_detectadas * 100 | number:'1.0-0')
+                      : 0
+                  }}%
+                </span>
+
+              </div>
+
+            </div>
+
+            <div class="bar-background">
+
+              <div
+                class="bar bar-pelicula"
+                [style.width.%]="
+                  datos.particulas_detectadas > 0
+                    ? datos.distribucion['película'] / datos.particulas_detectadas * 100
+                    : 0
+                "
+              >
+              </div>
+
+            </div>
 
           </div>
 
@@ -245,10 +326,7 @@
         @if (datos.particulas_detectadas === 0) {
 
           <div class="pending-data">
-
-            Aún no existen detecciones clasificadas
-            registradas en el sistema.
-
+            Aún no existen detecciones clasificadas registradas en el sistema.
           </div>
 
         }
@@ -256,16 +334,11 @@
       </div>
 
 
-      <!-- =============================
-           MODELO
-      ============================== -->
-
       <div class="dashboard-card">
 
         <div class="card-header">
 
           <div>
-
             <h2>
               Estado del modelo
             </h2>
@@ -273,13 +346,10 @@
             <p>
               Configuración y rendimiento del servicio de inferencia.
             </p>
-
           </div>
 
         </div>
 
-
-        <!-- MODELO CARGADO -->
 
         <div class="model-detail-row">
 
@@ -294,8 +364,6 @@
         </div>
 
 
-        <!-- ESTADO -->
-
         <div class="model-detail-row">
 
           <span>
@@ -306,19 +374,15 @@
             [class.success-text]="datos.modelo_operativo"
             [class.error-text]="!datos.modelo_operativo"
           >
-
             {{
               datos.modelo_operativo
                 ? 'Operativo'
                 : 'No disponible'
             }}
-
           </strong>
 
         </div>
 
-
-        <!-- RESOLUCIÓN -->
 
         <div class="model-detail-row">
 
@@ -327,17 +391,13 @@
           </span>
 
           <strong>
-
             {{ datos.resolucion_inferencia }}
             ×
             {{ datos.resolucion_inferencia }}
-
           </strong>
 
         </div>
 
-
-        <!-- UMBRAL -->
 
         <div class="model-detail-row">
 
@@ -346,18 +406,14 @@
           </span>
 
           <strong>
-
             {{
               datos.umbral_confianza * 100
                 | number:'1.0-0'
             }}%
-
           </strong>
 
         </div>
 
-
-        <!-- CLASES -->
 
         <div class="model-detail-row">
 
@@ -372,8 +428,6 @@
         </div>
 
 
-        <!-- PROMEDIO -->
-
         <div class="model-detail-row">
 
           <span>
@@ -381,19 +435,15 @@
           </span>
 
           <strong>
-
             {{
               datos.tiempo_promedio_inferencia_ms / 1000
                 | number:'1.2-2'
             }}
             s
-
           </strong>
 
         </div>
 
-
-        <!-- ÚLTIMA INFERENCIA -->
 
         <div class="model-detail-row">
 
@@ -403,9 +453,7 @@
 
           <strong>
 
-            @if (
-              datos.ultima_inferencia_ms !== null
-            ) {
+            @if (datos.ultima_inferencia_ms !== null) {
 
               {{
                 datos.ultima_inferencia_ms / 1000
@@ -422,22 +470,6 @@
           </strong>
 
         </div>
-
-
-        <!-- NOTA IMPORTANTE -->
-
-        @if (datos.numero_clases === 80) {
-
-          <div class="model-warning">
-
-            Actualmente está cargado el modelo base
-            YOLOv8n con 80 clases. El modelo entrenado
-            específicamente para microplásticos deberá
-            reemplazarlo cuando esté disponible.
-
-          </div>
-
-        }
 
       </div>
 

@@ -17,32 +17,39 @@ def save_analysis(
 
     muestra = Muestra(
         id_usuario=user_id,
-
-        # Usaremos descripción para conservar
-        # el identificador generado de la muestra
         descripcion=result.sample_id,
-
         estado="Analizada",
-
-        # Actualmente no se almacena físicamente
-        # la imagen original en una URL.
-        imagen_url=None,
+        imagen_url=(
+            result.original_image_url
+        ),
     )
 
     db.add(muestra)
+
     db.flush()
 
     registro = ResultadoAnalisis(
         id_muestra=muestra.id_muestra,
-        total_particulas=result.total_particles,
-        confianza_promedio=result.confidence,
-        desglose=dict(result.breakdown),
+        total_particulas=(
+            result.total_particles
+        ),
+        confianza_promedio=(
+            result.confidence
+        ),
+        desglose=dict(
+            result.breakdown
+        ),
         detecciones=[
-            d.model_dump()
-            for d in result.detections
+            detection.model_dump()
+            for detection
+            in result.detections
         ],
-        tiempo_procesamiento_ms=result.processing_time_ms,
-        imagen_anotada_url=result.annotated_image_url,
+        tiempo_procesamiento_ms=(
+            result.processing_time_ms
+        ),
+        imagen_anotada_url=(
+            result.annotated_image_url
+        ),
     )
 
     db.add(registro)
@@ -52,7 +59,6 @@ def save_analysis(
     db.refresh(registro)
 
     return registro
-
 
 def list_results(
     db: Session,

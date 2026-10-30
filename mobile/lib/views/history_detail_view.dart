@@ -220,9 +220,7 @@ class _HistoryDetailContent extends StatelessWidget {
             ),
           ),
           Text(
-            confianzaValida
-                ? '${detalle.confidencePercent}%'
-                : 'N/D',
+            confianzaValida ? '${detalle.confidencePercent}%' : 'N/D',
             style: const TextStyle(
               fontSize: 22,
               fontWeight: FontWeight.w800,
@@ -238,25 +236,57 @@ class _HistoryDetailContent extends StatelessWidget {
     final categorias = <_Categoria>[
       _Categoria(
         'Fibras',
-        _contar(detalle.breakdown, ['fiber', 'fibra', 'fibras']),
+        _contar(
+          detalle.breakdown,
+          [
+            'fiber',
+            'fibra',
+            'fibras',
+          ],
+        ),
         const Color(0xFF1976E9),
         Icons.linear_scale_rounded,
       ),
       _Categoria(
         'Fragmentos',
-        _contar(detalle.breakdown, ['fragment', 'fragmento', 'fragmentos']),
+        _contar(
+          detalle.breakdown,
+          [
+            'fragment',
+            'fragmento',
+            'fragmentos',
+          ],
+        ),
         const Color(0xFF08B981),
         Icons.grain_rounded,
       ),
       _Categoria(
-        'Pellets',
-        _contar(detalle.breakdown, ['pellet', 'pellets']),
+        'Gránulos',
+        _contar(
+          detalle.breakdown,
+          [
+            'pellet',
+            'pellets',
+            'granulo',
+            'gránulo',
+            'granulos',
+            'gránulos',
+          ],
+        ),
         const Color(0xFFFFA000),
         Icons.circle_outlined,
       ),
       _Categoria(
-        'Suciedad',
-        _contar(detalle.breakdown, ['dirt', 'suciedad']),
+        'Partícula orgánica',
+        _contar(
+          detalle.breakdown,
+          [
+            'dirt',
+            'suciedad',
+            'partícula orgánica',
+            'particula organica',
+          ],
+        ),
         const Color(0xFF8B5CF6),
         Icons.blur_on_rounded,
       ),
@@ -269,66 +299,72 @@ class _HistoryDetailContent extends StatelessWidget {
         return Wrap(
           spacing: 10,
           runSpacing: 10,
-          children: categorias.map((categoria) {
-            return SizedBox(
-              width: ancho,
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 13,
-                  vertical: 15,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  border: Border.all(
-                    color: HistoryDetailView.borde,
+          children: categorias.map(
+            (categoria) {
+              return SizedBox(
+                width: ancho,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 13,
+                    vertical: 15,
                   ),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 37,
-                      height: 37,
-                      decoration: BoxDecoration(
-                        color: categoria.color.withValues(alpha: 0.10),
-                        borderRadius: BorderRadius.circular(11),
-                      ),
-                      child: Icon(
-                        categoria.icono,
-                        color: categoria.color,
-                        size: 20,
-                      ),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    border: Border.all(
+                      color: HistoryDetailView.borde,
                     ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            '${categoria.cantidad}',
-                            style: TextStyle(
-                              color: categoria.color,
-                              fontSize: 22,
-                              fontWeight: FontWeight.w800,
-                            ),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 37,
+                        height: 37,
+                        decoration: BoxDecoration(
+                          color: categoria.color.withValues(
+                            alpha: 0.10,
                           ),
-                          Text(
-                            categoria.nombre,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: HistoryDetailView.secundario,
-                              fontSize: 12,
-                            ),
+                          borderRadius: BorderRadius.circular(
+                            11,
                           ),
-                        ],
+                        ),
+                        child: Icon(
+                          categoria.icono,
+                          color: categoria.color,
+                          size: 20,
+                        ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '${categoria.cantidad}',
+                              style: TextStyle(
+                                color: categoria.color,
+                                fontSize: 22,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            Text(
+                              categoria.nombre,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: HistoryDetailView.secundario,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            );
-          }).toList(),
+              );
+            },
+          ).toList(),
         );
       },
     );
@@ -460,13 +496,24 @@ class _HistoryDetailContent extends StatelessWidget {
   static String _nombreClase(String nombre) {
     switch (nombre.toLowerCase().trim()) {
       case 'fiber':
+      case 'fibra':
         return 'Fibra';
+
       case 'fragment':
+      case 'fragmento':
         return 'Fragmento';
+
       case 'pellet':
-        return 'Pellet';
+      case 'granulo':
+      case 'gránulo':
+        return 'Gránulo';
+
       case 'dirt':
-        return 'Suciedad';
+      case 'suciedad':
+      case 'particula organica':
+      case 'partícula orgánica':
+        return 'Partícula orgánica';
+
       default:
         return nombre.isEmpty ? 'Partícula detectada' : nombre;
     }
@@ -489,8 +536,7 @@ class _HistoryDetailContent extends StatelessWidget {
 
     final limpia = url.trim();
 
-    if (limpia.startsWith('https://') ||
-        limpia.startsWith('http://')) {
+    if (limpia.startsWith('https://') || limpia.startsWith('http://')) {
       return limpia;
     }
 

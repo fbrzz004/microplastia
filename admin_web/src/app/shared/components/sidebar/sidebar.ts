@@ -1,4 +1,6 @@
-import { Component } from '@angular/core';
+import {
+  Component
+} from '@angular/core';
 
 import {
   Router,
@@ -6,8 +8,14 @@ import {
   RouterLinkActive
 } from '@angular/router';
 
+import {
+  Auth
+} from '../../../core/services/auth';
+
+
 @Component({
   selector: 'app-sidebar',
+
   standalone: true,
 
   imports: [
@@ -15,23 +23,27 @@ import {
     RouterLinkActive
   ],
 
-  templateUrl: './sidebar.html',
-  styleUrl: './sidebar.css'
+  templateUrl:
+    './sidebar.html',
+
+  styleUrl:
+    './sidebar.css'
 })
 export class Sidebar {
 
   constructor(
-    private router: Router
+    private router: Router,
+    private auth: Auth
   ) {}
+
 
   cerrarSesion(): void {
 
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('usuario');
+    this.auth.logout();
 
-    sessionStorage.removeItem('access_token');
-    sessionStorage.removeItem('usuario');
 
-    this.router.navigate(['/login']);
+    this.router.navigate(
+      ['/login']
+    );
   }
 }

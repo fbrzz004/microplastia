@@ -282,8 +282,8 @@ class _TarjetaUltimoAnalisis extends StatelessWidget {
     final fechaTexto = fecha == null
         ? ''
         : '${fecha.day.toString().padLeft(2, '0')}/'
-          '${fecha.month.toString().padLeft(2, '0')}/'
-          '${fecha.year}';
+            '${fecha.month.toString().padLeft(2, '0')}/'
+            '${fecha.year}';
 
     return InkWell(
       onTap: onTap,
