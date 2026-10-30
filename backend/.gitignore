@@ -14,6 +14,7 @@ weights/
 # Archivos generados en tiempo de ejecución
 uploads/
 static/detections/
+static/reports/
 datasets/
 runs/
 *.db

@@ -26,3 +26,5 @@ pillow-heif
 alembic==1.11.1
 
 supabase==2.16.0
+
+reportlab==5.1.0

@@ -133,6 +133,34 @@ def _created_at(
     )
 
 
+def get_results_by_ids(
+    db: Session,
+    result_ids: Sequence[int],
+    user_id: int,
+) -> Sequence[ResultadoAnalisis]:
+    """Return the given analyses that belong to the user."""
+
+    if not result_ids:
+        return []
+
+    return (
+        db.query(ResultadoAnalisis)
+        .join(ResultadoAnalisis.muestra)
+        .options(
+            joinedload(ResultadoAnalisis.muestra)
+        )
+        .filter(
+            ResultadoAnalisis.id_resultado.in_(list(result_ids)),
+            Muestra.id_usuario == user_id,
+        )
+        .order_by(
+            ResultadoAnalisis.fecha_creacion.desc(),
+            ResultadoAnalisis.id_resultado.desc(),
+        )
+        .all()
+    )
+
+
 def to_history_item(
     registro: ResultadoAnalisis
 ) -> HistoryItem:

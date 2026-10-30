@@ -8,6 +8,7 @@ from app.api.v1.endpoints import (
     results,
     admin,
     users,
+    reports,
 )
 
 api_router = APIRouter()
@@ -19,3 +20,4 @@ api_router.include_router(history.router)
 api_router.include_router(results.router)
 api_router.include_router(admin.router)
 api_router.include_router(users.router)
+api_router.include_router(reports.router)

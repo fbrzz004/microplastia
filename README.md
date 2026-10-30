@@ -6,7 +6,7 @@ Aplicación móvil orientada al análisis de imágenes de microscopía para apoy
 
 **En desarrollo.**
 
-El proyecto ya integra el modelo YOLOv8n para el análisis de imágenes, el registro e inicio de sesión con JWT, y el almacenamiento de cada análisis en el historial del usuario. La generación de reportes a partir de los análisis seleccionados está pendiente.
+El proyecto ya integra el modelo YOLOv8n para el análisis de imágenes, el registro e inicio de sesión con JWT, el almacenamiento de cada análisis en el historial del usuario y la generación de reportes PDF a partir de los análisis seleccionados.
 
 ## Tecnologías
 
@@ -68,8 +68,9 @@ El backend estará disponible normalmente en:
 | POST   | `/api/v1/analyze`       | Analizar una imagen, guardarla en el historial y devolver las detecciones. |
 | GET    | `/api/v1/history`       | Listar los análisis del usuario autenticado.                              |
 | GET    | `/api/v1/results/{id}`  | Obtener el detalle de un análisis guardado.                               |
+| POST   | `/api/v1/reports`       | Generar un reporte PDF con los análisis seleccionados.                    |
 
-Los endpoints de análisis e historial requieren el encabezado
+Los endpoints de análisis, historial y reportes requieren el encabezado
 `Authorization: Bearer <token>` obtenido en el inicio de sesión.
 
 Documentación interactiva:
@@ -114,9 +115,10 @@ La configuración de la URL debe mantenerse centralizada en el archivo de config
 3. Selección y envío de una imagen al backend.
 4. Procesamiento de la imagen mediante el modelo de detección.
 5. Presentación de resultados y consulta del historial.
-6. Selección de análisis para generar reportes (pendiente).
+6. Selección de análisis para generar reportes en PDF.
 
-La generación de reportes es la funcionalidad pendiente del flujo.
+Los reportes se generan en el backend, se guardan en `backend/static/reports`
+y se abren desde la aplicación mediante su URL.
 
 ## Buenas prácticas para contribuir
 
