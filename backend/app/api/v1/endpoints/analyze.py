@@ -10,6 +10,7 @@ from fastapi import (
     status,
 )
 from sqlalchemy.orm import Session
+from starlette.concurrency import run_in_threadpool
 
 from app.core.file_validation import (
     InvalidUploadError,
@@ -51,7 +52,7 @@ async def analyze_sample(
         ...,
         description=(
             "Imagen microscópica "
-            "en JPG o PNG"
+            "en JPG, PNG, WEBP, HEIC o HEIF"
         ),
     ),
 
@@ -110,6 +111,16 @@ async def analyze_sample(
 
 
     # ------------------------------------------------------
+    # GUARDAR NOMBRE ORIGINAL
+    # ------------------------------------------------------
+
+    original_filename = (
+        file.filename
+        or "sample.jpg"
+    )
+
+
+    # ------------------------------------------------------
     # LEER ARCHIVO
     # ------------------------------------------------------
 
@@ -117,6 +128,10 @@ async def analyze_sample(
 
     await file.close()
 
+
+    # ------------------------------------------------------
+    # VALIDAR TAMAÑO
+    # ------------------------------------------------------
 
     try:
 
@@ -144,18 +159,30 @@ async def analyze_sample(
     # ------------------------------------------------------
     # INFERENCIA
     # ------------------------------------------------------
+    #
+    # IMPORTANTE:
+    #
+    # YOLO + PyTorch ejecutan procesamiento pesado y síncrono.
+    #
+    # Si ejecutamos inference_service.predict() directamente
+    # dentro de este endpoint async, podemos bloquear el event
+    # loop de FastAPI.
+    #
+    # En Render eso puede provocar que /health no responda
+    # durante la inferencia y Render considere que la instancia
+    # dejó de estar saludable.
+    #
+    # run_in_threadpool permite ejecutar YOLO fuera del event
+    # loop principal.
+    # ------------------------------------------------------
 
     try:
 
-        result = (
-            inference_service.predict(
-                image_bytes=image_bytes,
-                original_filename=(
-                    file.filename
-                    or "sample.jpg"
-                ),
-                sample_id=sample_id,
-            )
+        result = await run_in_threadpool(
+            inference_service.predict,
+            image_bytes,
+            original_filename,
+            sample_id,
         )
 
     except InvalidUploadError as exc:
@@ -196,6 +223,10 @@ async def analyze_sample(
         registro.id_resultado
     )
 
+
+    # ------------------------------------------------------
+    # RESPUESTA
+    # ------------------------------------------------------
 
     return AnalysisResponse(
         success=True,
