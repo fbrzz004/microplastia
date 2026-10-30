@@ -1,11 +1,15 @@
 import 'package:flutter/foundation.dart';
+
+import '../core/network/api_exception.dart';
+import '../core/validators/validators.dart';
 import '../services/profile_service.dart';
 
 class ProfileViewModel extends ChangeNotifier {
   final ProfileService _profileService;
 
-  ProfileViewModel({ProfileService? profileService})
-      : _profileService = profileService ?? ProfileService();
+  ProfileViewModel({
+    ProfileService? profileService,
+  }) : _profileService = profileService ?? ProfileService();
 
   bool isLoading = false;
   bool isSavingProfile = false;
@@ -14,6 +18,8 @@ class ProfileViewModel extends ChangeNotifier {
   String? errorMessage;
   String? successMessage;
 
+  bool sessionExpired = false;
+
   String nombre = '';
   String apellido = '';
   String correo = '';
@@ -21,21 +27,32 @@ class ProfileViewModel extends ChangeNotifier {
 
   Future<void> loadProfile() async {
     isLoading = true;
+
     errorMessage = null;
     successMessage = null;
+    sessionExpired = false;
+
     notifyListeners();
 
     try {
       final profile = await _profileService.getMyProfile();
 
       nombre = profile['nombre']?.toString() ?? '';
+
       apellido = profile['apellido']?.toString() ?? '';
+
       correo = profile['correo']?.toString() ?? '';
+
       rol = profile['rol']?.toString() ?? 'usuario';
-    } catch (e) {
-      errorMessage = _cleanError(e);
+    } on ApiException catch (e) {
+      errorMessage = e.message;
+
+      sessionExpired = e.sessionExpired;
+    } catch (_) {
+      errorMessage = 'No se pudo cargar el perfil.';
     } finally {
       isLoading = false;
+
       notifyListeners();
     }
   }
@@ -45,16 +62,42 @@ class ProfileViewModel extends ChangeNotifier {
     required String apellido,
     required String correo,
   }) async {
-    if (nombre.trim().isEmpty || correo.trim().isEmpty) {
-      errorMessage = 'El nombre y el correo son obligatorios.';
-      successMessage = null;
-      notifyListeners();
+    final nameError = Validators.validateName(
+      nombre,
+    );
+
+    if (nameError != null) {
+      _setError(nameError);
+
+      return false;
+    }
+
+    final lastNameError = Validators.validateOptionalLastName(
+      apellido,
+    );
+
+    if (lastNameError != null) {
+      _setError(lastNameError);
+
+      return false;
+    }
+
+    final emailError = Validators.validateEmail(
+      correo,
+    );
+
+    if (emailError != null) {
+      _setError(emailError);
+
       return false;
     }
 
     isSavingProfile = true;
+
     errorMessage = null;
     successMessage = null;
+    sessionExpired = false;
+
     notifyListeners();
 
     try {
@@ -65,16 +108,27 @@ class ProfileViewModel extends ChangeNotifier {
       );
 
       this.nombre = updated['nombre']?.toString() ?? nombre.trim();
+
       this.apellido = updated['apellido']?.toString() ?? apellido.trim();
+
       this.correo = updated['correo']?.toString() ?? correo.trim();
 
       successMessage = 'Perfil actualizado correctamente.';
+
       return true;
-    } catch (e) {
-      errorMessage = _cleanError(e);
+    } on ApiException catch (e) {
+      errorMessage = e.message;
+
+      sessionExpired = e.sessionExpired;
+
+      return false;
+    } catch (_) {
+      errorMessage = 'No se pudo actualizar el perfil.';
+
       return false;
     } finally {
       isSavingProfile = false;
+
       notifyListeners();
     }
   }
@@ -84,32 +138,52 @@ class ProfileViewModel extends ChangeNotifier {
     required String passwordNueva,
     required String confirmarPassword,
   }) async {
-    if (passwordActual.isEmpty ||
-        passwordNueva.isEmpty ||
-        confirmarPassword.isEmpty) {
-      errorMessage = 'Completa todos los campos de contraseña.';
-      successMessage = null;
-      notifyListeners();
+    if (passwordActual.isEmpty) {
+      _setError(
+        'Ingresa tu contraseña actual.',
+      );
+
       return false;
     }
 
-    if (passwordNueva.length < 8) {
-      errorMessage = 'La nueva contraseña debe tener al menos 8 caracteres.';
-      successMessage = null;
-      notifyListeners();
+    final passwordError = Validators.validatePassword(
+      passwordNueva,
+    );
+
+    if (passwordError != null) {
+      _setError(
+        Validators.passwordErrors(
+          passwordNueva,
+        ).join('\n'),
+      );
+
       return false;
     }
 
     if (passwordNueva != confirmarPassword) {
-      errorMessage = 'Las contraseñas nuevas no coinciden.';
-      successMessage = null;
-      notifyListeners();
+      _setError(
+        'Las contraseñas nuevas '
+        'no coinciden.',
+      );
+
+      return false;
+    }
+
+    if (passwordActual == passwordNueva) {
+      _setError(
+        'La nueva contraseña debe '
+        'ser diferente de la actual.',
+      );
+
       return false;
     }
 
     isChangingPassword = true;
+
     errorMessage = null;
     successMessage = null;
+    sessionExpired = false;
+
     notifyListeners();
 
     try {
@@ -119,30 +193,48 @@ class ProfileViewModel extends ChangeNotifier {
         confirmarPassword: confirmarPassword,
       );
 
-      successMessage = 'Contraseña actualizada correctamente.';
+      successMessage = 'Contraseña actualizada '
+          'correctamente.';
+
       return true;
-    } catch (e) {
-      errorMessage = _cleanError(e);
+    } on ApiException catch (e) {
+      errorMessage = e.message;
+
+      sessionExpired = e.sessionExpired;
+
+      return false;
+    } catch (_) {
+      errorMessage = 'No se pudo cambiar '
+          'la contraseña.';
+
       return false;
     } finally {
       isChangingPassword = false;
+
       notifyListeners();
     }
+  }
+
+  void _setError(
+    String message,
+  ) {
+    errorMessage = message;
+    successMessage = null;
+
+    notifyListeners();
   }
 
   void clearMessages() {
     errorMessage = null;
     successMessage = null;
-    notifyListeners();
-  }
 
-  String _cleanError(Object error) {
-    return error.toString().replaceFirst('Exception: ', '');
+    notifyListeners();
   }
 
   @override
   void dispose() {
     _profileService.dispose();
+
     super.dispose();
   }
 }

@@ -1,58 +1,79 @@
 import 'dart:async';
 import 'dart:convert';
+
 import 'package:http/http.dart' as http;
+
 import '../core/config/app_config.dart';
+import '../core/network/api_exception.dart';
 import 'session_service.dart';
 
 class AuthService {
-  static const Duration _timeout = Duration(seconds: 10);
-
   Future<Map<String, dynamic>> login({
     required String correo,
     required String password,
   }) async {
-    final url = Uri.parse(
-      '${AppConfig.apiBaseUrl}${AppConfig.apiPrefix}/auth/login',
-    );
+    try {
+      final response = await http
+          .post(
+            Uri.parse(
+              AppConfig.loginEndpoint,
+            ),
+            headers: const {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+            },
+            body: jsonEncode({
+              'correo': correo.trim().toLowerCase(),
+              'password': password,
+            }),
+          )
+          .timeout(
+            AppConfig.requestTimeout,
+          );
 
-    final response = await http.post(
-      url,
-      headers: {
-        'Content-Type': 'application/json',
-        'accept': 'application/json',
-      },
-      body: jsonEncode({
-        'correo': correo,
-        'password': password,
-      }),
-    ).timeout(_timeout);
+      final data = _decodeResponse(
+        response.body,
+      );
 
-    final data = _decodeResponse(response.body);
+      if (response.statusCode == 200) {
+        final token = data['access_token'];
 
-    if (response.statusCode == 200) {
-      final token = data['access_token'];
+        if (token is! String || token.trim().isEmpty) {
+          throw const ApiException(
+            message: 'No se pudo iniciar sesión.',
+          );
+        }
 
-      if (token is! String || token.isEmpty) {
-        throw const FormatException(
-          'La respuesta del servidor no contiene un token válido.',
+        await SessionService.saveToken(
+          token,
         );
+
+        return {
+          'success': true,
+          'data': data,
+        };
       }
 
-      await SessionService.saveToken(token);
-
-      return {
-        'success': true,
-        'data': data,
-      };
-    }
-
-    return {
-      'success': false,
-      'message': _getErrorMessage(
+      throw _exceptionFromResponse(
+        response.statusCode,
         data,
-        'Error al iniciar sesión',
-      ),
-    };
+      );
+    } on TimeoutException {
+      throw const ApiException(
+        message: 'El servidor está tardando demasiado. '
+            'Inténtalo nuevamente.',
+      );
+    } on http.ClientException {
+      throw const ApiException(
+        message: 'No se pudo conectar con el servidor. '
+            'Verifica tu conexión a Internet.',
+      );
+    } on FormatException {
+      throw const ApiException(
+        message: 'El servidor devolvió una respuesta '
+            'no válida.',
+      );
+    }
   }
 
   Future<Map<String, dynamic>> register({
@@ -61,78 +82,180 @@ class AuthService {
     required String correo,
     required String password,
   }) async {
-    final url = Uri.parse(
-      '${AppConfig.apiBaseUrl}${AppConfig.apiPrefix}/auth/register',
-    );
+    try {
+      final response = await http
+          .post(
+            Uri.parse(
+              AppConfig.registerEndpoint,
+            ),
+            headers: const {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+            },
+            body: jsonEncode({
+              'nombre': nombre.trim(),
+              'apellido':
+                  apellido?.trim().isEmpty == true ? null : apellido?.trim(),
+              'correo': correo.trim().toLowerCase(),
+              'password': password,
+            }),
+          )
+          .timeout(
+            AppConfig.requestTimeout,
+          );
 
-    final response = await http.post(
-      url,
-      headers: {
-        'Content-Type': 'application/json',
-        'accept': 'application/json',
-      },
-      body: jsonEncode({
-        'nombre': nombre,
-        'apellido': apellido,
-        'correo': correo,
-        'password': password,
-      }),
-    ).timeout(_timeout);
+      final data = _decodeResponse(
+        response.body,
+      );
 
-    final data = _decodeResponse(response.body);
+      if (response.statusCode == 201) {
+        return {
+          'success': true,
+          'data': data,
+        };
+      }
 
-    if (response.statusCode == 201) {
-      return {
-        'success': true,
-        'data': data,
-      };
-    }
-
-    return {
-      'success': false,
-      'message': _getErrorMessage(
+      throw _exceptionFromResponse(
+        response.statusCode,
         data,
-        'Error al registrar usuario',
-      ),
-    };
+      );
+    } on TimeoutException {
+      throw const ApiException(
+        message: 'El servidor está tardando demasiado. '
+            'Inténtalo nuevamente.',
+      );
+    } on http.ClientException {
+      throw const ApiException(
+        message: 'No se pudo conectar con el servidor. '
+            'Verifica tu conexión a Internet.',
+      );
+    } on FormatException {
+      throw const ApiException(
+        message: 'El servidor devolvió una respuesta '
+            'no válida.',
+      );
+    }
   }
 
   Future<void> logout() async {
     await SessionService.clearToken();
   }
 
-  Future<bool> isLoggedIn() async {
+  Future<bool> isLoggedIn() {
     return SessionService.hasToken();
   }
 
-  Map<String, dynamic> _decodeResponse(String body) {
+  Map<String, dynamic> _decodeResponse(
+    String body,
+  ) {
     if (body.trim().isEmpty) {
-      throw const FormatException(
-        'El servidor devolvió una respuesta vacía.',
-      );
+      return <String, dynamic>{};
     }
 
     final decoded = jsonDecode(body);
 
-    if (decoded is! Map<String, dynamic>) {
-      throw const FormatException(
-        'El formato de respuesta del servidor no es válido.',
-      );
+    if (decoded is Map<String, dynamic>) {
+      return decoded;
     }
 
-    return decoded;
+    throw const FormatException(
+      'Invalid JSON response',
+    );
   }
 
-  String _getErrorMessage(
+  ApiException _exceptionFromResponse(
+    int statusCode,
     Map<String, dynamic> data,
-    String defaultMessage,
   ) {
-    final detail = data['detail'] ?? data['message'];
+    switch (statusCode) {
+      case 400:
+        return ApiException(
+          statusCode: statusCode,
+          message: _extractMessage(
+            data,
+            fallback: 'Revisa los datos ingresados.',
+          ),
+        );
 
-    if (detail is String && detail.isNotEmpty) {
+      case 401:
+        return const ApiException(
+          statusCode: 401,
+          message: 'Correo o contraseña incorrectos.',
+        );
+
+      case 403:
+        return const ApiException(
+          statusCode: 403,
+          message: 'No se pudo iniciar sesión.',
+        );
+
+      case 422:
+        return ApiException(
+          statusCode: 422,
+          message: _extractMessage(
+            data,
+            fallback: 'Revisa los datos ingresados.',
+          ),
+        );
+
+      case 429:
+        return const ApiException(
+          statusCode: 429,
+          message: 'Demasiados intentos. '
+              'Inténtalo nuevamente más tarde.',
+        );
+
+      case 500:
+        return const ApiException(
+          statusCode: 500,
+          message: 'Ocurrió un problema en el servidor. '
+              'Inténtalo nuevamente.',
+        );
+
+      case 503:
+        return const ApiException(
+          statusCode: 503,
+          message: 'El servicio no está disponible '
+              'temporalmente.',
+        );
+
+      default:
+        return const ApiException(
+          message: 'No se pudo completar la operación.',
+        );
+    }
+  }
+
+  String _extractMessage(
+    Map<String, dynamic> data, {
+    required String fallback,
+  }) {
+    final detail = data['detail'];
+
+    if (detail is String && detail.trim().isNotEmpty) {
       return detail;
     }
 
-    return defaultMessage;
+    if (detail is Map<String, dynamic>) {
+      final message = detail['message'];
+
+      final errors = detail['errors'];
+
+      if (errors is List && errors.isNotEmpty) {
+        return errors.map((e) => e.toString()).join('\n');
+      }
+
+      if (message is String && message.trim().isNotEmpty) {
+        return message;
+      }
+    }
+
+    final message = data['message'];
+
+    if (message is String && message.trim().isNotEmpty) {
+      return message;
+    }
+
+    return fallback;
   }
 }

@@ -1,43 +1,74 @@
-import { inject } from '@angular/core';
-import { CanActivateFn, Router } from '@angular/router';
+import {
+  inject
+} from '@angular/core';
 
-export const authGuard: CanActivateFn = () => {
-  const router = inject(Router);
+import {
+  CanActivateChildFn,
+  CanActivateFn,
+  Router
+} from '@angular/router';
 
-  const token =
-    localStorage.getItem('access_token') ||
-    sessionStorage.getItem('access_token');
+import {
+  Auth
+} from '../services/auth';
 
-  const usuarioGuardado =
-    localStorage.getItem('usuario') ||
-    sessionStorage.getItem('usuario');
 
-  if (!token || !usuarioGuardado) {
-    return router.createUrlTree(['/login']);
+function verificarAcceso() {
+
+  const auth =
+    inject(Auth);
+
+  const router =
+    inject(Router);
+
+
+  if (
+    !auth.sesionValida()
+  ) {
+
+    return router.createUrlTree(
+      ['/login']
+    );
   }
 
-  try {
-    const usuario = JSON.parse(usuarioGuardado);
 
-    if (usuario.rol !== 'administrador') {
-      limpiarSesion();
+  return true;
+}
 
-      return router.createUrlTree(['/login']);
+
+export const authGuard:
+  CanActivateFn = () => {
+
+    return verificarAcceso();
+  };
+
+
+export const authChildGuard:
+  CanActivateChildFn = () => {
+
+    return verificarAcceso();
+  };
+
+
+export const guestGuard:
+  CanActivateFn = () => {
+
+    const auth =
+      inject(Auth);
+
+    const router =
+      inject(Router);
+
+
+    if (
+      auth.sesionValida()
+    ) {
+
+      return router.createUrlTree(
+        ['/dashboard']
+      );
     }
 
+
     return true;
-
-  } catch {
-    limpiarSesion();
-
-    return router.createUrlTree(['/login']);
-  }
-};
-
-function limpiarSesion(): void {
-  localStorage.removeItem('access_token');
-  localStorage.removeItem('usuario');
-
-  sessionStorage.removeItem('access_token');
-  sessionStorage.removeItem('usuario');
-}
+  };

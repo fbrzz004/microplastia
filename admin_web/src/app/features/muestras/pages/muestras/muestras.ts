@@ -4,74 +4,182 @@ import {
   OnInit
 } from '@angular/core';
 
-import { CommonModule } from '@angular/common';
+import {
+  CommonModule
+} from '@angular/common';
+
+import {
+  HttpErrorResponse
+} from '@angular/common/http';
+
+import {
+  finalize
+} from 'rxjs';
 
 import {
   Admin,
   MuestraAdmin
 } from '../../../../core/services/admin';
 
+
 @Component({
   selector: 'app-muestras',
+
   standalone: true,
-  imports: [CommonModule],
-  templateUrl: './muestras.html',
-  styleUrl: './muestras.css'
+
+  imports: [
+    CommonModule
+  ],
+
+  templateUrl:
+    './muestras.html',
+
+  styleUrl:
+    './muestras.css'
 })
 export class Muestras implements OnInit {
 
-  muestras: MuestraAdmin[] = [];
+  muestras:
+    MuestraAdmin[] = [];
 
   cargando = true;
+
   error = '';
+
 
   constructor(
     private adminService: Admin,
-    private cdr: ChangeDetectorRef
+
+    private cdr:
+      ChangeDetectorRef
   ) {}
+
 
   ngOnInit(): void {
     this.cargarMuestras();
   }
 
+
   cargarMuestras(): void {
 
     this.cargando = true;
+
     this.error = '';
 
-    this.adminService.obtenerMuestras().subscribe({
 
-      next: (muestras) => {
+    this.adminService
+      .obtenerMuestras()
+      .pipe(
 
-        this.muestras = muestras;
+        finalize(() => {
 
-        this.cargando = false;
+          this.cargando = false;
 
-        this.cdr.markForCheck();
-      },
+          this.cdr.markForCheck();
 
-      error: (error) => {
+        })
 
-        this.cargando = false;
+      )
+      .subscribe({
 
-        if (error.status === 401) {
+        next: (
+          muestras
+        ) => {
+
+          this.muestras = muestras;
+
+          this.error = '';
+
+          this.cdr.markForCheck();
+        },
+
+
+        error: (
+          error: unknown
+        ) => {
+
           this.error =
-            'Tu sesión ha expirado. Vuelve a iniciar sesión.';
-        } else if (error.status === 403) {
-          this.error =
-            'No tienes permisos para consultar las muestras.';
-        } else {
-          this.error =
-            'No se pudieron cargar las muestras.';
+            this.obtenerMensajeError(
+              error
+            );
+
+          this.cdr.markForCheck();
         }
 
-        this.cdr.markForCheck();
+      });
+  }
 
-        console.error(
-          'Error al cargar muestras:',
-          error
+
+  private obtenerMensajeError(
+    error: unknown
+  ): string {
+
+    if (
+      !(error instanceof
+        HttpErrorResponse)
+    ) {
+
+      return (
+        'No se pudieron cargar las muestras.'
+      );
+    }
+
+
+    switch (
+      error.status
+    ) {
+
+      case 0:
+
+        return (
+          'No se pudo conectar con el servidor.'
         );
-      }
-    });
+
+
+      case 401:
+
+        return (
+          'Tu sesión ha expirado.'
+        );
+
+
+      case 403:
+
+        return (
+          'No tienes permisos para '
+          + 'consultar las muestras.'
+        );
+
+
+      case 429:
+
+        return (
+          'Se realizaron demasiadas solicitudes. '
+          + 'Inténtalo nuevamente más tarde.'
+        );
+
+
+      case 500:
+
+        return (
+          'Ocurrió un problema al cargar '
+          + 'las muestras.'
+        );
+
+
+      case 503:
+
+        return (
+          'El servicio no está disponible '
+          + 'temporalmente.'
+        );
+
+
+      default:
+
+        return (
+          'No se pudieron cargar las muestras.'
+        );
+    }
   }
 }

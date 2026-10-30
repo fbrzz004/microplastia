@@ -45,24 +45,23 @@ class _AnalysisViewState extends State<AnalysisView> {
         _mensaje = null;
         _error = false;
       });
-    } catch (e) {
+    } catch (_) {
       if (!mounted) return;
+
       setState(() {
         _mensaje = source == ImageSource.camera
-            ? 'No se pudo tomar la fotografía: $e'
-            : 'No se pudo seleccionar la imagen: $e';
+            ? 'No se pudo tomar la fotografía.'
+            : 'No se pudo seleccionar la imagen.';
+
         _error = true;
       });
     }
   }
 
-  Future<void> _seleccionarImagen() =>
-      _cargarImagen(ImageSource.gallery);
+  Future<void> _seleccionarImagen() => _cargarImagen(ImageSource.gallery);
 
-  Future<void> _tomarFotografia() =>
-      _cargarImagen(ImageSource.camera);
+  Future<void> _tomarFotografia() => _cargarImagen(ImageSource.camera);
 
-  
   Future<void> _subirImagen() async {
     if (_imagenSeleccionada == null || _imagenBytes == null) {
       setState(() {
@@ -82,8 +81,23 @@ class _AnalysisViewState extends State<AnalysisView> {
     if (!mounted) return;
 
     if (correcto) {
-      unawaited(context.read<HistoryViewModel>().refrescar());
-      context.go('/result');
+      unawaited(
+        context.read<HistoryViewModel>().refrescar(),
+      );
+
+      final resultado = viewModel.resultado;
+      final data = resultado?['data'];
+
+      final resultId = data is Map ? data['result_id'] : null;
+
+      if (resultId != null) {
+        context.go('/history/$resultId');
+      } else {
+        setState(() {
+          _mensaje = 'El análisis terminó, pero no se pudo abrir el detalle.';
+          _error = true;
+        });
+      }
     } else {
       setState(() {
         _mensaje = viewModel.errorMessage;
@@ -93,15 +107,15 @@ class _AnalysisViewState extends State<AnalysisView> {
   }
 
   void _quitarImagen() {
-  if (context.read<AnalysisViewModel>().isLoading) return;
+    if (context.read<AnalysisViewModel>().isLoading) return;
 
-  setState(() {
-    _imagenSeleccionada = null;
-    _imagenBytes = null;
-    _mensaje = null;
-    _error = false;
-  });
-}
+    setState(() {
+      _imagenSeleccionada = null;
+      _imagenBytes = null;
+      _mensaje = null;
+      _error = false;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -130,7 +144,6 @@ class _AnalysisViewState extends State<AnalysisView> {
                   style: TextStyle(fontSize: 12, color: secundario),
                 ),
                 const SizedBox(height: 32),
-
                 Container(
                   height: 188,
                   width: double.infinity,
@@ -150,7 +163,6 @@ class _AnalysisViewState extends State<AnalysisView> {
                         )
                       : const _IlustracionMicroscopio(),
                 ),
-
                 if (_imagenSeleccionada != null) ...[
                   const SizedBox(height: 8),
                   Row(
@@ -178,7 +190,6 @@ class _AnalysisViewState extends State<AnalysisView> {
                     ],
                   ),
                 ],
-
                 const SizedBox(height: 20),
                 const Text(
                   'Puedes tomar una foto desde el módulo óptico o '
@@ -190,7 +201,6 @@ class _AnalysisViewState extends State<AnalysisView> {
                   ),
                 ),
                 const SizedBox(height: 20),
-
                 SizedBox(
                   height: 45,
                   child: ElevatedButton.icon(
@@ -213,7 +223,6 @@ class _AnalysisViewState extends State<AnalysisView> {
                   ),
                 ),
                 const SizedBox(height: 10),
-
                 SizedBox(
                   height: 45,
                   child: OutlinedButton.icon(
@@ -236,7 +245,6 @@ class _AnalysisViewState extends State<AnalysisView> {
                     ),
                   ),
                 ),
-
                 if (_imagenSeleccionada != null) ...[
                   const SizedBox(height: 10),
                   SizedBox(
@@ -269,7 +277,6 @@ class _AnalysisViewState extends State<AnalysisView> {
                     ),
                   ),
                 ],
-
                 const SizedBox(height: 16),
                 Container(
                   width: double.infinity,
@@ -302,7 +309,6 @@ class _AnalysisViewState extends State<AnalysisView> {
                     ],
                   ),
                 ),
-
                 if (_mensaje != null) ...[
                   const SizedBox(height: 14),
                   Container(

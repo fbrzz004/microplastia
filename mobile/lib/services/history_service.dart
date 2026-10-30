@@ -1,16 +1,20 @@
 import 'dart:async';
 import 'dart:convert';
+
 import 'package:http/http.dart' as http;
+
 import '../core/config/app_config.dart';
+import '../core/network/api_error_mapper.dart';
+import '../core/network/api_exception.dart';
 import '../models/analysis_result.dart';
 import 'session_service.dart';
 
 class HistoryService {
-  HistoryService({http.Client? client}) : _client = client ?? http.Client();
+  HistoryService({
+    http.Client? client,
+  }) : _client = client ?? http.Client();
 
   final http.Client _client;
-
-  static const Duration _timeout = Duration(seconds: 15);
 
   Future<List<AnalysisSummary>> listar({
     String? query,
@@ -27,97 +31,153 @@ class HistoryService {
     }
 
     final uri = Uri.parse(
-      '${AppConfig.apiBaseUrl}${AppConfig.apiPrefix}/history',
-    ).replace(queryParameters: parametros);
+      '${AppConfig.apiBaseUrl}'
+      '${AppConfig.apiPrefix}'
+      '/history',
+    ).replace(
+      queryParameters: parametros,
+    );
 
     final data = await _get(uri);
+
     final items = data['items'] as List? ?? const [];
 
     return items
         .whereType<Map>()
         .map(
           (item) => AnalysisSummary.fromJson(
-            Map<String, dynamic>.from(item),
+            Map<String, dynamic>.from(
+              item,
+            ),
           ),
         )
         .toList();
   }
 
-  Future<AnalysisDetail> obtener(int id) async {
+  Future<AnalysisDetail> obtener(
+    int id,
+  ) async {
     final uri = Uri.parse(
-      '${AppConfig.apiBaseUrl}${AppConfig.apiPrefix}/results/$id',
+      '${AppConfig.apiBaseUrl}'
+      '${AppConfig.apiPrefix}'
+      '/results/$id',
     );
 
     final data = await _get(uri);
 
-    return AnalysisDetail.fromJson(data);
+    return AnalysisDetail.fromJson(
+      data,
+    );
   }
 
-  Future<Map<String, dynamic>> _get(Uri uri) async {
-    final token = await SessionService.getToken();
+  Future<Map<String, dynamic>> _get(
+    Uri uri,
+  ) async {
+    final token = await SessionService.getValidToken();
 
-    if (token == null || token.isEmpty) {
-      throw Exception('Tu sesión expiró. Inicia sesión de nuevo.');
-    }
-
-    final http.Response response;
-
-    try {
-      response = await _client
-          .get(
-            uri,
-            headers: {
-              'Accept': 'application/json',
-              'Authorization': 'Bearer $token',
-            },
-          )
-          .timeout(_timeout);
-    } on TimeoutException {
-      throw Exception(
-        'El servidor no respondió. Verifica la conexión e inténtalo de nuevo.',
+    if (token == null) {
+      throw const ApiException(
+        statusCode: 401,
+        sessionExpired: true,
+        message: 'Tu sesión expiró. '
+            'Inicia sesión nuevamente.',
       );
     }
 
-    dynamic decoded;
+    late final http.Response response;
 
     try {
-      decoded = jsonDecode(response.body);
-    } on FormatException {
-      // Un 500 de FastAPI responde texto plano, no JSON: se informa el código.
-      decoded = null;
+      response = await _client.get(
+        uri,
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      ).timeout(
+        AppConfig.requestTimeout,
+      );
+    } on TimeoutException {
+      throw const ApiException(
+        message: 'El servidor está tardando '
+            'demasiado. Inténtalo nuevamente.',
+      );
+    } on http.ClientException {
+      throw const ApiException(
+        message: 'No se pudo conectar con '
+            'el servidor.',
+      );
     }
+
+    final decoded = _decode(response.body);
 
     if (response.statusCode == 401) {
-      throw Exception('Tu sesión expiró. Inicia sesión de nuevo.');
-    }
+      await SessionService.clearToken();
 
-    if (response.statusCode == 404) {
-      throw Exception('El análisis solicitado no existe.');
+      throw ApiErrorMapper.fromStatusCode(401);
     }
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      final detalle = decoded is Map
-          ? decoded['detail'] ?? decoded['message']
-          : null;
-
-      throw Exception(
-        detalle?.toString() ??
-            'El servidor respondió ${response.statusCode}. '
-                'Inténtalo de nuevo.',
+      throw ApiErrorMapper.fromStatusCode(
+        response.statusCode,
+        serverMessage: _extractMessage(decoded),
       );
     }
 
     if (decoded is! Map<String, dynamic>) {
-      throw Exception('El servidor devolvió una respuesta no válida.');
+      throw const ApiException(
+        message: 'El servidor devolvió '
+            'una respuesta no válida.',
+      );
     }
 
     final data = decoded['data'];
 
     if (data is! Map) {
-      throw Exception('Formato de respuesta inesperado.');
+      throw const ApiException(
+        message: 'No se pudo interpretar '
+            'la respuesta del servidor.',
+      );
     }
 
-    return Map<String, dynamic>.from(data);
+    return Map<String, dynamic>.from(
+      data,
+    );
+  }
+
+  dynamic _decode(
+    String body,
+  ) {
+    if (body.trim().isEmpty) {
+      return null;
+    }
+
+    try {
+      return jsonDecode(body);
+    } on FormatException {
+      return null;
+    }
+  }
+
+  String? _extractMessage(
+    dynamic decoded,
+  ) {
+    if (decoded is! Map) {
+      return null;
+    }
+
+    final detail = decoded['detail'];
+
+    if (detail is String && detail.trim().isNotEmpty) {
+      return detail;
+    }
+
+    final message = decoded['message'];
+
+    if (message is String && message.trim().isNotEmpty) {
+      return message;
+    }
+
+    return null;
   }
 
   void dispose() {

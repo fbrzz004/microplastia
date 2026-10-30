@@ -11,18 +11,22 @@ import 'viewmodels/register_viewmodel.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  final hasSession = await SessionService.hasToken();
+  await SessionService.initialize();
 
-  runApp(MyApp(hasSession: hasSession));
+  runApp(
+    const MyApp(),
+  );
 }
 
 class MyApp extends StatelessWidget {
-  final bool hasSession;
-
-  const MyApp({super.key, required this.hasSession});
+  const MyApp({
+    super.key,
+  });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(
+    BuildContext context,
+  ) {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(
@@ -40,7 +44,7 @@ class MyApp extends StatelessWidget {
       ],
       child: MaterialApp.router(
         debugShowCheckedModeBanner: false,
-        routerConfig: createRouter(hasSession),
+        routerConfig: createRouter(),
       ),
     );
   }

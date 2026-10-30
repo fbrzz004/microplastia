@@ -1,6 +1,7 @@
-import 'dart:async';
-
 import 'package:flutter/foundation.dart';
+
+import '../core/network/api_exception.dart';
+import '../core/validators/validators.dart';
 import '../services/auth_service.dart';
 
 class RegisterViewModel extends ChangeNotifier {
@@ -10,6 +11,7 @@ class RegisterViewModel extends ChangeNotifier {
   String? _errorMessage;
 
   bool get isLoading => _isLoading;
+
   String? get errorMessage => _errorMessage;
 
   Future<bool> register({
@@ -18,44 +20,78 @@ class RegisterViewModel extends ChangeNotifier {
     required String correo,
     required String password,
   }) async {
-    if (_isLoading) return false;
+    if (_isLoading) {
+      return false;
+    }
 
-    if (nombre.trim().isEmpty ||
-        correo.trim().isEmpty ||
-        password.isEmpty) {
-      _errorMessage = 'Completa los campos obligatorios';
-      notifyListeners();
+    final nameError = Validators.validateName(
+      nombre,
+    );
+
+    if (nameError != null) {
+      _setError(nameError);
+
+      return false;
+    }
+
+    final lastNameError = Validators.validateOptionalLastName(
+      apellido,
+    );
+
+    if (lastNameError != null) {
+      _setError(lastNameError);
+
+      return false;
+    }
+
+    final emailError = Validators.validateEmail(
+      correo,
+    );
+
+    if (emailError != null) {
+      _setError(emailError);
+
+      return false;
+    }
+
+    final passwordError = Validators.validatePassword(
+      password,
+    );
+
+    if (passwordError != null) {
+      final errors = Validators.passwordErrors(
+        password,
+      );
+
+      _setError(
+        errors.join('\n'),
+      );
+
       return false;
     }
 
     _isLoading = true;
     _errorMessage = null;
+
     notifyListeners();
 
     try {
-      final result = await _authService.register(
-        nombre: nombre.trim(),
-        apellido: apellido?.trim().isEmpty == true
-            ? null
-            : apellido?.trim(),
-        correo: correo.trim(),
+      await _authService.register(
+        nombre: nombre,
+        apellido: apellido,
+        correo: correo,
         password: password,
       );
 
-      if (result['success'] == true) {
-        return true;
-      }
-
-      _errorMessage = result['message']?.toString()
-          ?? 'Error al registrar usuario';
+      return true;
+    } on ApiException catch (e) {
+      _errorMessage = e.message;
 
       return false;
-    } on TimeoutException {
-      _errorMessage =
-          'El servidor no respondió. Verifica la conexión e inténtalo de nuevo';
-      return false;
-    } catch (e) {
-      _errorMessage = 'No se pudo conectar con el servidor';
+    } catch (_) {
+      _errorMessage = 'No se pudo completar el registro. '
+          'Inténtalo nuevamente.';
+
       return false;
     } finally {
       _isLoading = false;
@@ -63,10 +99,21 @@ class RegisterViewModel extends ChangeNotifier {
     }
   }
 
+  void _setError(
+    String message,
+  ) {
+    _errorMessage = message;
+
+    notifyListeners();
+  }
+
   void clearError() {
-    if (_errorMessage == null) return;
+    if (_errorMessage == null) {
+      return;
+    }
 
     _errorMessage = null;
+
     notifyListeners();
   }
 }

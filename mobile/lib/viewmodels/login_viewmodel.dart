@@ -1,6 +1,7 @@
-import 'dart:async';
-
 import 'package:flutter/foundation.dart';
+
+import '../core/network/api_exception.dart';
+import '../core/validators/validators.dart';
 import '../services/auth_service.dart';
 
 class LoginViewModel extends ChangeNotifier {
@@ -10,46 +11,59 @@ class LoginViewModel extends ChangeNotifier {
   String? _errorMessage;
 
   bool get isLoading => _isLoading;
+
   String? get errorMessage => _errorMessage;
 
   Future<bool> login({
     required String correo,
     required String password,
   }) async {
-    // Evitar solicitudes simultáneas.
-    if (_isLoading) return false;
+    if (_isLoading) {
+      return false;
+    }
 
-    // Validar los campos antes de llamar a la API.
-    if (correo.trim().isEmpty || password.trim().isEmpty) {
-      _errorMessage = 'Completa todos los campos';
+    final emailError = Validators.validateEmail(
+      correo,
+    );
+
+    if (emailError != null) {
+      _errorMessage = emailError;
       notifyListeners();
+
+      return false;
+    }
+
+    final passwordError = Validators.validateLoginPassword(
+      password,
+    );
+
+    if (passwordError != null) {
+      _errorMessage = passwordError;
+      notifyListeners();
+
       return false;
     }
 
     _isLoading = true;
     _errorMessage = null;
+
     notifyListeners();
 
     try {
-      final result = await _authService.login(
-        correo: correo.trim(),
+      await _authService.login(
+        correo: correo,
         password: password,
       );
 
-      if (result['success'] == true) {
-        return true;
-      }
-
-      _errorMessage = result['message']?.toString()
-          ?? 'Error al iniciar sesión';
+      return true;
+    } on ApiException catch (e) {
+      _errorMessage = e.message;
 
       return false;
-    } on TimeoutException {
-      _errorMessage =
-          'El servidor no respondió. Verifica la conexión e inténtalo de nuevo';
-      return false;
-    } catch (e) {
-      _errorMessage = 'No se pudo conectar con el servidor';
+    } catch (_) {
+      _errorMessage = 'No se pudo completar el inicio '
+          'de sesión. Inténtalo nuevamente.';
+
       return false;
     } finally {
       _isLoading = false;
@@ -58,7 +72,9 @@ class LoginViewModel extends ChangeNotifier {
   }
 
   void clearError() {
-    if (_errorMessage == null) return;
+    if (_errorMessage == null) {
+      return;
+    }
 
     _errorMessage = null;
     notifyListeners();

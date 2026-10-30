@@ -4,11 +4,9 @@ import 'package:mobile/main.dart';
 void main() {
   testWidgets(
     'La aplicación inicia correctamente',
-        (WidgetTester tester) async {
+    (WidgetTester tester) async {
       await tester.pumpWidget(
-        const MyApp(
-          hasSession: false,
-        ),
+        const MyApp(),
       );
 
       expect(find.text('Ingresar'), findsOneWidget);
