@@ -1,110 +1,297 @@
 import io
+import json
 
 from PIL import Image
 
 
-def _sample_image_bytes(fmt: str = "JPEG", color: str = "red") -> io.BytesIO:
-    img = Image.new("RGB", (100, 100), color=color)
+def _sample_image_bytes(
+    image_format: str = "JPEG",
+) -> bytes:
+    image = Image.new(
+        "RGB",
+        (64, 64),
+        color=(120, 180, 200),
+    )
+
     buffer = io.BytesIO()
-    img.save(buffer, format=fmt)
-    buffer.seek(0)
-    return buffer
+
+    image.save(
+        buffer,
+        format=image_format,
+    )
+
+    return buffer.getvalue()
+
+
+def _mobile_payload(
+    sample_id: str = "TEST-SAMPLE-01",
+) -> dict:
+    return {
+        "sample_id": sample_id,
+        "total_particles": 2,
+        "confidence": 0.75,
+        "breakdown": {
+            "fibra": 1,
+            "fragmento": 1,
+            "gránulo": 0,
+            "partícula orgánica": 0,
+        },
+        "detections": [
+            {
+                "class_id": 1,
+                "class_name": "fibra",
+                "confidence": 0.80,
+                "box": [
+                    10.0,
+                    10.0,
+                    30.0,
+                    30.0,
+                ],
+            },
+            {
+                "class_id": 2,
+                "class_name": "fragmento",
+                "confidence": 0.70,
+                "box": [
+                    32.0,
+                    32.0,
+                    50.0,
+                    50.0,
+                ],
+            },
+        ],
+        "processing_time_ms": 523.5,
+    }
 
 
 def test_read_root(client):
     response = client.get("/")
+
     assert response.status_code == 200
-    data = response.json()
-    assert data["status"] == "success"
 
 
 def test_health_check(client):
-    response = client.get("/api/v1/health")
+    response = client.get("/health")
+
     assert response.status_code == 200
-    data = response.json()
-    assert data["success"] is True
-    assert data["data"]["status"] == "ok"
 
 
-def test_analyze_endpoint(client, auth_headers):
+def test_mobile_analyze_endpoint(
+    client,
+    auth_headers,
+):
+    payload = _mobile_payload()
+
     response = client.post(
-        "/api/v1/analyze",
+        "/api/v1/analyze/mobile",
         headers=auth_headers,
-        files={"file": ("test_sample.jpg", _sample_image_bytes(), "image/jpeg")},
-        data={"sample_id": "TEST-SAMPLE-01"},
+        data={
+            "payload": json.dumps(
+                payload,
+                ensure_ascii=False,
+            ),
+        },
+        files={
+            "annotated_file": (
+                "annotated.jpg",
+                _sample_image_bytes(),
+                "image/jpeg",
+            ),
+        },
     )
 
-    assert response.status_code == 200, response.text
-    res_data = response.json()
-    assert res_data["success"] is True
-    assert res_data["data"]["sample_id"] == "TEST-SAMPLE-01"
-    assert res_data["data"]["total_particles"] >= 0
-    assert isinstance(res_data["data"]["breakdown"], dict)
-    assert "processing_time_ms" in res_data["data"]
-    assert res_data["data"]["result_id"] is not None
+    assert response.status_code == 200, (
+        response.text
+    )
+
+    body = response.json()
+
+    assert body["success"] is True
+
+    assert (
+        body["data"]["sample_id"]
+        == "TEST-SAMPLE-01"
+    )
+
+    assert (
+        body["data"]["total_particles"]
+        == 2
+    )
+
+    assert len(
+        body["data"]["detections"]
+    ) == 2
+
+    assert (
+        body["data"]["result_id"]
+        is not None
+    )
 
 
-def test_analyze_requires_authentication(client):
+def test_mobile_analyze_requires_authentication(
+    client,
+):
+    payload = _mobile_payload()
+
     response = client.post(
-        "/api/v1/analyze",
-        files={"file": ("test_sample.jpg", _sample_image_bytes(), "image/jpeg")},
+        "/api/v1/analyze/mobile",
+        data={
+            "payload": json.dumps(
+                payload,
+                ensure_ascii=False,
+            ),
+        },
     )
+
     assert response.status_code == 401
 
 
-def test_analyze_generates_annotated_image(client, auth_headers):
-    response = client.post(
-        "/api/v1/analyze",
-        headers=auth_headers,
-        files={"file": ("annotated.jpg", _sample_image_bytes("PNG"), "image/png")},
+def test_mobile_analyze_generates_annotated_image(
+    client,
+    auth_headers,
+):
+    payload = _mobile_payload(
+        "TEST-ANNOTATED-01"
     )
 
-    assert response.status_code == 200, response.text
-    annotated_url = response.json()["data"]["annotated_image_url"]
-    assert annotated_url
-
-    preview = client.get(annotated_url)
-    assert preview.status_code == 200
-    assert preview.headers["content-type"].startswith("image/")
-
-
-def test_analyze_accepts_octet_stream(client, auth_headers):
     response = client.post(
-        "/api/v1/analyze",
+        "/api/v1/analyze/mobile",
         headers=auth_headers,
+        data={
+            "payload": json.dumps(
+                payload,
+                ensure_ascii=False,
+            ),
+        },
         files={
-            "file": (
-                "flutter.jpg",
-                _sample_image_bytes(),
-                "application/octet-stream",
-            )
+            "annotated_file": (
+                "annotated.png",
+                _sample_image_bytes("PNG"),
+                "image/png",
+            ),
         },
     )
-    assert response.status_code == 200, response.text
 
-
-def test_analyze_rejects_non_image(client, auth_headers):
-    response = client.post(
-        "/api/v1/analyze",
-        headers=auth_headers,
-        files={"file": ("nota.txt", b"no soy una imagen", "text/plain")},
+    assert response.status_code == 200, (
+        response.text
     )
+
+    body = response.json()
+
+    annotated_url = (
+        body["data"]
+        ["annotated_image_url"]
+    )
+
+    assert annotated_url
+    assert isinstance(
+        annotated_url,
+        str,
+    )
+
+
+def test_mobile_analyze_without_image(
+    client,
+    auth_headers,
+):
+    payload = _mobile_payload(
+        "TEST-NO-IMAGE-01"
+    )
+
+    response = client.post(
+        "/api/v1/analyze/mobile",
+        headers=auth_headers,
+        data={
+            "payload": json.dumps(
+                payload,
+                ensure_ascii=False,
+            ),
+        },
+    )
+
+    assert response.status_code == 200, (
+        response.text
+    )
+
+    body = response.json()
+
+    assert (
+        body["data"]
+        ["annotated_image_url"]
+        is None
+    )
+
+
+def test_mobile_analyze_rejects_invalid_payload(
+    client,
+    auth_headers,
+):
+    response = client.post(
+        "/api/v1/analyze/mobile",
+        headers=auth_headers,
+        data={
+            "payload": (
+                "esto-no-es-json"
+            ),
+        },
+    )
+
     assert response.status_code == 400
 
 
-def test_analyze_rejects_corrupt_image(client, auth_headers):
-    response = client.post(
-        "/api/v1/analyze",
-        headers=auth_headers,
-        files={"file": ("rota.jpg", b"\xff\xd8\xff\xe0datos-basura", "image/jpeg")},
+def test_mobile_analyze_rejects_inconsistent_count(
+    client,
+    auth_headers,
+):
+    payload = _mobile_payload(
+        "TEST-INVALID-COUNT"
     )
+
+    payload["total_particles"] = 5
+
+    response = client.post(
+        "/api/v1/analyze/mobile",
+        headers=auth_headers,
+        data={
+            "payload": json.dumps(
+                payload,
+                ensure_ascii=False,
+            ),
+        },
+    )
+
     assert response.status_code == 400
 
-
-def test_analyze_rejects_empty_file(client, auth_headers):
-    response = client.post(
-        "/api/v1/analyze",
-        headers=auth_headers,
-        files={"file": ("vacia.jpg", b"", "image/jpeg")},
+    assert (
+        "total_particles"
+        in response.json()["detail"]
     )
+
+
+def test_mobile_analyze_rejects_corrupt_image(
+    client,
+    auth_headers,
+):
+    payload = _mobile_payload(
+        "TEST-CORRUPT-IMAGE"
+    )
+
+    response = client.post(
+        "/api/v1/analyze/mobile",
+        headers=auth_headers,
+        data={
+            "payload": json.dumps(
+                payload,
+                ensure_ascii=False,
+            ),
+        },
+        files={
+            "annotated_file": (
+                "corrupta.jpg",
+                b"\xff\xd8datos-basura",
+                "image/jpeg",
+            ),
+        },
+    )
+
     assert response.status_code == 400

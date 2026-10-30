@@ -6,11 +6,14 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
+import '../services/tflite_inference_service.dart';
 import '../viewmodels/analysis_viewmodel.dart';
 import '../viewmodels/history_viewmodel.dart';
 
 class AnalysisView extends StatefulWidget {
-  const AnalysisView({super.key});
+  const AnalysisView({
+    super.key,
+  });
 
   @override
   State<AnalysisView> createState() => _AnalysisViewState();
@@ -19,34 +22,91 @@ class AnalysisView extends StatefulWidget {
 class _AnalysisViewState extends State<AnalysisView> {
   final ImagePicker _picker = ImagePicker();
 
+  final TfliteInferenceService _tfliteService =
+  TfliteInferenceService();
+
   XFile? _imagenSeleccionada;
   Uint8List? _imagenBytes;
+
   String? _mensaje;
+
   bool _error = false;
 
-  static const Color azul = Color(0xFF1976E9);
-  static const Color texto = Color(0xFF203653);
-  static const Color secundario = Color(0xFF8492A6);
-  static const Color fondoImagen = Color(0xFFF0F5F8);
-  static const Color celeste = Color(0xFFE0F5FC);
+  static const Color azul = Color(
+    0xFF1976E9,
+  );
 
-  Future<void> _cargarImagen(ImageSource source) async {
+  static const Color texto = Color(
+    0xFF203653,
+  );
+
+  static const Color secundario = Color(
+    0xFF8492A6,
+  );
+
+  static const Color fondoImagen = Color(
+    0xFFF0F5F8,
+  );
+
+  static const Color celeste = Color(
+    0xFFE0F5FC,
+  );
+
+  @override
+  void initState() {
+    super.initState();
+
+    _cargarModeloTflite();
+  }
+
+  Future<void> _cargarModeloTflite() async {
     try {
-      final archivo = await _picker.pickImage(source: source);
+      await _tfliteService.loadModel();
+    } catch (e) {
+      debugPrint(
+        'Error cargando modelo TFLite: $e',
+      );
+    }
+  }
 
-      if (archivo == null) return;
+  @override
+  void dispose() {
+    _tfliteService.close();
+
+    super.dispose();
+  }
+
+  Future<void> _cargarImagen(
+      ImageSource source,
+      ) async {
+    try {
+      final archivo = await _picker.pickImage(
+        source: source,
+      );
+
+      if (archivo == null) {
+        return;
+      }
 
       final bytes = await archivo.readAsBytes();
-      if (!mounted) return;
+
+      if (!mounted) {
+        return;
+      }
 
       setState(() {
         _imagenSeleccionada = archivo;
+
         _imagenBytes = bytes;
+
         _mensaje = null;
+
         _error = false;
       });
     } catch (_) {
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
 
       setState(() {
         _mensaje = source == ImageSource.camera
@@ -58,9 +118,17 @@ class _AnalysisViewState extends State<AnalysisView> {
     }
   }
 
-  Future<void> _seleccionarImagen() => _cargarImagen(ImageSource.gallery);
+  Future<void> _seleccionarImagen() {
+    return _cargarImagen(
+      ImageSource.gallery,
+    );
+  }
 
-  Future<void> _tomarFotografia() => _cargarImagen(ImageSource.camera);
+  Future<void> _tomarFotografia() {
+    return _cargarImagen(
+      ImageSource.camera,
+    );
+  }
 
   Future<void> _subirImagen() async {
     if (_imagenSeleccionada == null || _imagenBytes == null) {
@@ -88,220 +156,426 @@ class _AnalysisViewState extends State<AnalysisView> {
       final resultado = viewModel.resultado;
       final data = resultado?['data'];
 
-      final resultId = data is Map ? data['result_id'] : null;
+      final resultId = data is Map
+          ? data['result_id']
+          : null;
 
       if (resultId != null) {
-        context.go('/history/$resultId');
+        context.go(
+          '/history/$resultId',
+        );
       } else {
         setState(() {
-          _mensaje = 'El análisis terminó, pero no se pudo abrir el detalle.';
+          _mensaje =
+          'El análisis terminó, pero no se pudo abrir el detalle.';
           _error = true;
         });
       }
     } else {
       setState(() {
-        _mensaje = viewModel.errorMessage;
+        _mensaje =
+            viewModel.errorMessage ??
+                'No se pudo completar el análisis.';
         _error = true;
       });
     }
   }
-
   void _quitarImagen() {
-    if (context.read<AnalysisViewModel>().isLoading) return;
+    if (
+    context
+        .read<AnalysisViewModel>()
+        .isLoading) {
+      return;
+    }
 
     setState(() {
       _imagenSeleccionada = null;
+
       _imagenBytes = null;
+
       _mensaje = null;
+
       _error = false;
     });
   }
 
   @override
-  Widget build(BuildContext context) {
-    final viewModel = context.watch<AnalysisViewModel>();
+  Widget build(
+      BuildContext context,
+      ) {
+    final viewModel =
+    context.watch<AnalysisViewModel>();
+
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor:
+      Colors.white,
       body: SafeArea(
         child: Center(
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 560),
+            constraints:
+            const BoxConstraints(
+              maxWidth: 560,
+            ),
             child: ListView(
-              padding: const EdgeInsets.fromLTRB(18, 14, 18, 24),
+              padding:
+              const EdgeInsets
+                  .fromLTRB(
+                18,
+                14,
+                18,
+                24,
+              ),
               children: [
                 const Text(
                   'Nueva muestra',
                   style: TextStyle(
                     fontSize: 22,
-                    fontWeight: FontWeight.w700,
+                    fontWeight:
+                    FontWeight.w700,
                     color: texto,
                     height: 1.25,
                   ),
                 ),
-                const SizedBox(height: 3),
-                const Text(
-                  'Carga una microfotografía para analizar',
-                  style: TextStyle(fontSize: 12, color: secundario),
+                const SizedBox(
+                  height: 3,
                 ),
-                const SizedBox(height: 32),
+                const Text(
+                  'Carga una microfotografía '
+                      'para analizar',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: secundario,
+                  ),
+                ),
+                const SizedBox(
+                  height: 32,
+                ),
                 Container(
                   height: 188,
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    color: fondoImagen,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: const Color(0xFFE0E8F0)),
+                  width:
+                  double.infinity,
+                  decoration:
+                  BoxDecoration(
+                    color:
+                    fondoImagen,
+                    borderRadius:
+                    BorderRadius
+                        .circular(
+                      16,
+                    ),
+                    border:
+                    Border.all(
+                      color:
+                      const Color(
+                        0xFFE0E8F0,
+                      ),
+                    ),
                   ),
-                  clipBehavior: Clip.antiAlias,
-                  child: _imagenBytes != null
+                  clipBehavior:
+                  Clip.antiAlias,
+                  child:
+                  _imagenBytes !=
+                      null
                       ? Image.memory(
-                          _imagenBytes!,
-                          fit: BoxFit.contain,
-                          width: double.infinity,
-                          errorBuilder: (_, __, ___) =>
-                              const _IlustracionMicroscopio(),
-                        )
+                    _imagenBytes!,
+                    fit: BoxFit
+                        .contain,
+                    width: double
+                        .infinity,
+                    errorBuilder:
+                        (
+                        _,
+                        __,
+                        ___,
+                        ) =>
+                    const _IlustracionMicroscopio(),
+                  )
                       : const _IlustracionMicroscopio(),
                 ),
-                if (_imagenSeleccionada != null) ...[
-                  const SizedBox(height: 8),
+                if (_imagenSeleccionada !=
+                    null) ...[
+                  const SizedBox(
+                    height: 8,
+                  ),
                   Row(
                     children: [
                       const Icon(
-                        Icons.image_outlined,
+                        Icons
+                            .image_outlined,
                         color: azul,
                         size: 18,
                       ),
-                      const SizedBox(width: 6),
+                      const SizedBox(
+                        width: 6,
+                      ),
                       Expanded(
                         child: Text(
-                          _imagenSeleccionada!.name,
+                          _imagenSeleccionada!
+                              .name,
                           maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(color: texto, fontSize: 12),
+                          overflow:
+                          TextOverflow
+                              .ellipsis,
+                          style:
+                          const TextStyle(
+                            color: texto,
+                            fontSize: 12,
+                          ),
                         ),
                       ),
                       IconButton(
-                        onPressed: viewModel.isLoading ? null : _quitarImagen,
-                        icon: const Icon(Icons.close, size: 19),
-                        tooltip: 'Quitar imagen',
-                        visualDensity: VisualDensity.compact,
+                        onPressed:
+                        viewModel
+                            .isLoading
+                            ? null
+                            : _quitarImagen,
+                        icon:
+                        const Icon(
+                          Icons.close,
+                          size: 19,
+                        ),
+                        tooltip:
+                        'Quitar imagen',
+                        visualDensity:
+                        VisualDensity
+                            .compact,
                       ),
                     ],
                   ),
                 ],
-                const SizedBox(height: 20),
+                const SizedBox(
+                  height: 20,
+                ),
                 const Text(
-                  'Puedes tomar una foto desde el módulo óptico o '
-                  'seleccionar una imagen de tu galería.',
+                  'Puedes tomar una foto '
+                      'desde el módulo óptico '
+                      'o seleccionar una imagen '
+                      'de tu galería.',
                   style: TextStyle(
                     fontSize: 12,
                     color: secundario,
                     height: 1.45,
                   ),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(
+                  height: 20,
+                ),
                 SizedBox(
                   height: 45,
-                  child: ElevatedButton.icon(
-                    onPressed: viewModel.isLoading ? null : _tomarFotografia,
-                    icon: const Icon(Icons.camera_alt_outlined),
-                    label: const Text('Tomar fotografía'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: azul,
-                      foregroundColor: Colors.white,
-                      disabledBackgroundColor: azul.withValues(alpha: 0.6),
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                  child:
+                  ElevatedButton
+                      .icon(
+                    onPressed:
+                    viewModel
+                        .isLoading
+                        ? null
+                        : _tomarFotografia,
+                    icon:
+                    const Icon(
+                      Icons
+                          .camera_alt_outlined,
+                    ),
+                    label:
+                    const Text(
+                      'Tomar fotografía',
+                    ),
+                    style:
+                    ElevatedButton
+                        .styleFrom(
+                      backgroundColor:
+                      azul,
+                      foregroundColor:
+                      Colors.white,
+                      disabledBackgroundColor:
+                      azul.withValues(
+                        alpha: 0.6,
                       ),
-                      textStyle: const TextStyle(
-                        fontWeight: FontWeight.w600,
+                      elevation: 0,
+                      shape:
+                      RoundedRectangleBorder(
+                        borderRadius:
+                        BorderRadius
+                            .circular(
+                          12,
+                        ),
+                      ),
+                      textStyle:
+                      const TextStyle(
+                        fontWeight:
+                        FontWeight
+                            .w600,
                         fontSize: 14,
                       ),
                     ),
                   ),
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(
+                  height: 10,
+                ),
                 SizedBox(
                   height: 45,
-                  child: OutlinedButton.icon(
-                    onPressed: viewModel.isLoading ? null : _seleccionarImagen,
-                    icon: const Icon(
-                      Icons.photo_library_outlined,
+                  child:
+                  OutlinedButton
+                      .icon(
+                    onPressed:
+                    viewModel
+                        .isLoading
+                        ? null
+                        : _seleccionarImagen,
+                    icon:
+                    const Icon(
+                      Icons
+                          .photo_library_outlined,
                       size: 19,
                     ),
-                    label: const Text('Seleccionar imagen'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFF303846),
-                      side: const BorderSide(color: Color(0xFFE0E8F0)),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                    label:
+                    const Text(
+                      'Seleccionar imagen',
+                    ),
+                    style:
+                    OutlinedButton
+                        .styleFrom(
+                      foregroundColor:
+                      const Color(
+                        0xFF303846,
                       ),
-                      textStyle: const TextStyle(
-                        fontWeight: FontWeight.w600,
+                      side:
+                      const BorderSide(
+                        color: Color(
+                          0xFFE0E8F0,
+                        ),
+                      ),
+                      shape:
+                      RoundedRectangleBorder(
+                        borderRadius:
+                        BorderRadius
+                            .circular(
+                          12,
+                        ),
+                      ),
+                      textStyle:
+                      const TextStyle(
+                        fontWeight:
+                        FontWeight
+                            .w600,
                         fontSize: 14,
                       ),
                     ),
                   ),
                 ),
-                if (_imagenSeleccionada != null) ...[
-                  const SizedBox(height: 10),
+                if (_imagenSeleccionada !=
+                    null) ...[
+                  const SizedBox(
+                    height: 10,
+                  ),
                   SizedBox(
                     height: 45,
-                    child: ElevatedButton.icon(
-                      onPressed: viewModel.isLoading ? null : _subirImagen,
-                      icon: viewModel.isLoading
+                    child:
+                    ElevatedButton
+                        .icon(
+                      onPressed:
+                      viewModel
+                          .isLoading
+                          ? null
+                          : _subirImagen,
+                      icon:
+                      viewModel
+                          .isLoading
                           ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
-                              ),
-                            )
-                          : const Icon(Icons.science_outlined),
+                        width:
+                        18,
+                        height:
+                        18,
+                        child:
+                        CircularProgressIndicator(
+                          strokeWidth:
+                          2,
+                          color:
+                          Colors.white,
+                        ),
+                      )
+                          : const Icon(
+                        Icons
+                            .science_outlined,
+                      ),
                       label: Text(
-                        viewModel.isLoading
+                        viewModel
+                            .isLoading
                             ? 'Procesando imagen...'
                             : 'Analizar imagen',
                       ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: azul,
-                        foregroundColor: Colors.white,
+                      style:
+                      ElevatedButton
+                          .styleFrom(
+                        backgroundColor:
+                        azul,
+                        foregroundColor:
+                        Colors.white,
                         elevation: 0,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                        shape:
+                        RoundedRectangleBorder(
+                          borderRadius:
+                          BorderRadius
+                              .circular(
+                            12,
+                          ),
                         ),
                       ),
                     ),
                   ),
                 ],
-                const SizedBox(height: 16),
+                const SizedBox(
+                  height: 16,
+                ),
                 Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: celeste,
-                    borderRadius: BorderRadius.circular(15),
+                  width:
+                  double.infinity,
+                  padding:
+                  const EdgeInsets
+                      .all(
+                    14,
                   ),
-                  child: const Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  decoration:
+                  BoxDecoration(
+                    color: celeste,
+                    borderRadius:
+                    BorderRadius
+                        .circular(
+                      15,
+                    ),
+                  ),
+                  child:
+                  const Column(
+                    crossAxisAlignment:
+                    CrossAxisAlignment
+                        .start,
                     children: [
                       Text(
                         'Recomendación',
-                        style: TextStyle(
+                        style:
+                        TextStyle(
                           color: azul,
                           fontSize: 11,
-                          fontWeight: FontWeight.w700,
+                          fontWeight:
+                          FontWeight
+                              .w700,
                         ),
                       ),
-                      SizedBox(height: 8),
+                      SizedBox(
+                        height: 8,
+                      ),
                       Text(
-                        'Usa una imagen enfocada, con buena iluminación '
-                        'y sin reflejos para mejorar la detección.',
-                        style: TextStyle(
-                          color: Color(0xFF344454),
+                        'Usa una imagen '
+                            'enfocada, con buena '
+                            'iluminación y sin '
+                            'reflejos para mejorar '
+                            'la detección.',
+                        style:
+                        TextStyle(
+                          color:
+                          Color(
+                            0xFF344454,
+                          ),
                           fontSize: 11,
                           height: 1.4,
                         ),
@@ -309,22 +583,44 @@ class _AnalysisViewState extends State<AnalysisView> {
                     ],
                   ),
                 ),
-                if (_mensaje != null) ...[
-                  const SizedBox(height: 14),
+                if (_mensaje !=
+                    null) ...[
+                  const SizedBox(
+                    height: 14,
+                  ),
                   Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: _error
-                          ? const Color(0xFFFFEEEE)
-                          : const Color(0xFFE9F8EE),
-                      borderRadius: BorderRadius.circular(12),
+                    padding:
+                    const EdgeInsets
+                        .all(
+                      12,
                     ),
-                    child: SelectableText(
+                    decoration:
+                    BoxDecoration(
+                      color: _error
+                          ? const Color(
+                        0xFFFFEEEE,
+                      )
+                          : const Color(
+                        0xFFE9F8EE,
+                      ),
+                      borderRadius:
+                      BorderRadius
+                          .circular(
+                        12,
+                      ),
+                    ),
+                    child:
+                    SelectableText(
                       _mensaje!,
-                      style: TextStyle(
+                      style:
+                      TextStyle(
                         color: _error
-                            ? Colors.red.shade900
-                            : Colors.green.shade900,
+                            ? Colors
+                            .red
+                            .shade900
+                            : Colors
+                            .green
+                            .shade900,
                         fontSize: 12,
                       ),
                     ),
@@ -339,27 +635,77 @@ class _AnalysisViewState extends State<AnalysisView> {
   }
 }
 
-class _IlustracionMicroscopio extends StatelessWidget {
+class _IlustracionMicroscopio
+    extends StatelessWidget {
   const _IlustracionMicroscopio();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(
+      BuildContext context,
+      ) {
     return Center(
       child: Container(
         width: 124,
         height: 124,
-        decoration: const BoxDecoration(
-          shape: BoxShape.circle,
-          color: Color(0xFFDDE1D5),
+        decoration:
+        const BoxDecoration(
+          shape:
+          BoxShape.circle,
+          color:
+          Color(
+            0xFFDDE1D5,
+          ),
         ),
         child: const Stack(
           children: [
-            _Punto(x: 37, y: 35, color: Color(0xFF1680F5), size: 10),
-            _Punto(x: 94, y: 28, color: Color(0xFF19AA82), size: 8),
-            _Punto(x: 73, y: 60, color: Color(0xFFEF4C50), size: 7),
-            _Punto(x: 25, y: 68, color: Color(0xFFFFB21A), size: 5),
-            _Punto(x: 53, y: 86, color: Color(0xFF183653), size: 6),
-            _Punto(x: 87, y: 94, color: Color(0xFF35A4F5), size: 8),
+            _Punto(
+              x: 37,
+              y: 35,
+              color: Color(
+                0xFF1680F5,
+              ),
+              size: 10,
+            ),
+            _Punto(
+              x: 94,
+              y: 28,
+              color: Color(
+                0xFF19AA82,
+              ),
+              size: 8,
+            ),
+            _Punto(
+              x: 73,
+              y: 60,
+              color: Color(
+                0xFFEF4C50,
+              ),
+              size: 7,
+            ),
+            _Punto(
+              x: 25,
+              y: 68,
+              color: Color(
+                0xFFFFB21A,
+              ),
+              size: 5,
+            ),
+            _Punto(
+              x: 53,
+              y: 86,
+              color: Color(
+                0xFF183653,
+              ),
+              size: 6,
+            ),
+            _Punto(
+              x: 87,
+              y: 94,
+              color: Color(
+                0xFF35A4F5,
+              ),
+              size: 8,
+            ),
           ],
         ),
       ),
@@ -367,7 +713,8 @@ class _IlustracionMicroscopio extends StatelessWidget {
   }
 }
 
-class _Punto extends StatelessWidget {
+class _Punto
+    extends StatelessWidget {
   final double x;
   final double y;
   final double size;
@@ -381,16 +728,20 @@ class _Punto extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(
+      BuildContext context,
+      ) {
     return Positioned(
       left: x,
       top: y,
       child: Container(
         width: size,
         height: size,
-        decoration: BoxDecoration(
+        decoration:
+        BoxDecoration(
           color: color,
-          shape: BoxShape.circle,
+          shape:
+          BoxShape.circle,
         ),
       ),
     );

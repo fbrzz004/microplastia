@@ -1,5 +1,9 @@
+import json
 import uuid
+from typing import Dict, List, Optional
 
+import cv2
+import numpy as np
 from fastapi import (
     APIRouter,
     Depends,
@@ -9,31 +13,25 @@ from fastapi import (
     UploadFile,
     status,
 )
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
-from starlette.concurrency import run_in_threadpool
 
 from app.core.file_validation import (
     InvalidUploadError,
-    validate_content_type,
-    validate_image_size,
     validate_sample_id,
 )
-from app.core.security import (
-    get_current_user,
-)
+from app.core.security import get_current_user
 from app.db.session import get_db
 from app.models.user import Usuario
 from app.schemas.analysis import (
+    AnalysisData,
     AnalysisResponse,
+    DetectionItem,
 )
-from app.services.history_service import (
-    save_analysis,
-)
-from app.services.inference import (
-    inference_service,
-)
+from app.services.history_service import save_analysis
 from app.services.storage_service import (
     StorageError,
+    storage_service,
 )
 
 
@@ -42,68 +40,142 @@ router = APIRouter(
 )
 
 
+# ==========================================================
+# MODELOS PARA RESULTADOS GENERADOS EN EL MÓVIL
+# ==========================================================
+
+class MobileDetection(BaseModel):
+    class_id: int = Field(
+        ge=0,
+        le=3,
+    )
+
+    class_name: str = Field(
+        min_length=1,
+        max_length=100,
+    )
+
+    confidence: float = Field(
+        ge=0.0,
+        le=1.0,
+    )
+
+    box: List[float] = Field(
+        min_length=4,
+        max_length=4,
+    )
+
+
+class MobileAnalysisRequest(BaseModel):
+    sample_id: Optional[str] = None
+
+    total_particles: int = Field(
+        ge=0,
+    )
+
+    confidence: float = Field(
+        ge=0.0,
+        le=1.0,
+    )
+
+    breakdown: Dict[str, int]
+
+    detections: List[MobileDetection]
+
+    processing_time_ms: float = Field(
+        ge=0.0,
+    )
+
+
+# ==========================================================
+# ANÁLISIS MÓVIL
+# ==========================================================
+
 @router.post(
-    "/analyze",
+    "/analyze/mobile",
     response_model=AnalysisResponse,
 )
-async def analyze_sample(
+async def save_mobile_analysis(
+    payload: str = Form(...),
 
-    file: UploadFile = File(
-        ...,
-        description=(
-            "Imagen microscópica "
-            "en JPG, PNG, WEBP, HEIC o HEIF"
-        ),
-    ),
-
-    sample_id: str | None = Form(
+    annotated_file: UploadFile | None = File(
         default=None,
-        description=(
-            "Identificador opcional "
-            "de la muestra"
-        ),
     ),
 
-    db: Session = Depends(
-        get_db
-    ),
+    db: Session = Depends(get_db),
 
     usuario: Usuario = Depends(
         get_current_user
     ),
-
 ):
+    """
+    Recibe resultados generados por TFLite/LiteRT en Flutter.
+
+    El backend NO ejecuta modelos de inteligencia artificial.
+
+    El backend únicamente:
+    - valida los resultados
+    - almacena la imagen anotada
+    - guarda el análisis en la base de datos
+    - permite consultarlo desde historial y reportes
+    """
 
     # ------------------------------------------------------
-    # VALIDAR METADATOS
+    # PAYLOAD JSON
     # ------------------------------------------------------
 
     try:
-
-        validate_content_type(
-            file.content_type
+        payload_json = json.loads(
+            payload
         )
 
-        sample_id = validate_sample_id(
-            sample_id
+        mobile_result = (
+            MobileAnalysisRequest
+            .model_validate(
+                payload_json
+            )
         )
 
-    except InvalidUploadError as exc:
-
+    except (
+        json.JSONDecodeError,
+        ValueError,
+    ) as exc:
         raise HTTPException(
             status_code=(
                 status.HTTP_400_BAD_REQUEST
             ),
-            detail=str(exc),
+            detail=(
+                "Los resultados enviados "
+                "por el dispositivo no son válidos."
+            ),
         ) from exc
 
 
     # ------------------------------------------------------
-    # GENERAR ID
+    # SAMPLE ID
     # ------------------------------------------------------
 
-    if not sample_id:
+    sample_id = (
+        mobile_result.sample_id
+    )
 
+    if sample_id:
+        try:
+            sample_id = (
+                validate_sample_id(
+                    sample_id
+                )
+            )
+
+        except InvalidUploadError as exc:
+            raise HTTPException(
+                status_code=(
+                    status.HTTP_400_BAD_REQUEST
+                ),
+                detail=str(exc),
+            ) from exc
+
+    if not sample_id:
         sample_id = (
             "MUESTRA-"
             f"{uuid.uuid4().hex[:8].upper()}"
@@ -111,105 +183,160 @@ async def analyze_sample(
 
 
     # ------------------------------------------------------
-    # GUARDAR NOMBRE ORIGINAL
+    # CONSISTENCIA DE DETECCIONES
     # ------------------------------------------------------
 
-    original_filename = (
-        file.filename
-        or "sample.jpg"
-    )
-
-
-    # ------------------------------------------------------
-    # LEER ARCHIVO
-    # ------------------------------------------------------
-
-    image_bytes = await file.read()
-
-    await file.close()
-
-
-    # ------------------------------------------------------
-    # VALIDAR TAMAÑO
-    # ------------------------------------------------------
-
-    try:
-
-        validate_image_size(
-            image_bytes
-        )
-
-    except InvalidUploadError as exc:
-
-        message = str(exc)
-
-        status_code = (
-            status.HTTP_413_REQUEST_ENTITY_TOO_LARGE
-            if "tamaño máximo"
-            in message
-            else status.HTTP_400_BAD_REQUEST
-        )
-
-        raise HTTPException(
-            status_code=status_code,
-            detail=message,
-        ) from exc
-
-
-    # ------------------------------------------------------
-    # INFERENCIA
-    # ------------------------------------------------------
-    #
-    # IMPORTANTE:
-    #
-    # YOLO + PyTorch ejecutan procesamiento pesado y síncrono.
-    #
-    # Si ejecutamos inference_service.predict() directamente
-    # dentro de este endpoint async, podemos bloquear el event
-    # loop de FastAPI.
-    #
-    # En Render eso puede provocar que /health no responda
-    # durante la inferencia y Render considere que la instancia
-    # dejó de estar saludable.
-    #
-    # run_in_threadpool permite ejecutar YOLO fuera del event
-    # loop principal.
-    # ------------------------------------------------------
-
-    try:
-
-        result = await run_in_threadpool(
-            inference_service.predict,
-            image_bytes,
-            original_filename,
-            sample_id,
-        )
-
-    except InvalidUploadError as exc:
-
+    if (
+        mobile_result.total_particles
+        != len(mobile_result.detections)
+    ):
         raise HTTPException(
             status_code=(
                 status.HTTP_400_BAD_REQUEST
             ),
-            detail=str(exc),
-        ) from exc
-
-    except StorageError as exc:
-
-        raise HTTPException(
-            status_code=(
-                status.HTTP_503_SERVICE_UNAVAILABLE
-            ),
             detail=(
-                "No se pudo almacenar "
-                "la imagen temporalmente. "
-                "Inténtalo nuevamente."
+                "total_particles no coincide "
+                "con la cantidad de detecciones."
             ),
-        ) from exc
+        )
 
 
     # ------------------------------------------------------
-    # PERSISTENCIA
+    # IMAGEN ANOTADA
+    # ------------------------------------------------------
+
+    annotated_image_url = None
+
+    if annotated_file is not None:
+        annotated_bytes = (
+            await annotated_file.read()
+        )
+
+        await annotated_file.close()
+
+        if annotated_bytes:
+            if (
+                len(annotated_bytes)
+                > 10 * 1024 * 1024
+            ):
+                raise HTTPException(
+                    status_code=(
+                        status.HTTP_413_REQUEST_ENTITY_TOO_LARGE
+                    ),
+                    detail=(
+                        "La imagen anotada supera "
+                        "el tamaño máximo permitido."
+                    ),
+                )
+
+            image_array = np.frombuffer(
+                annotated_bytes,
+                dtype=np.uint8,
+            )
+
+            image_bgr = cv2.imdecode(
+                image_array,
+                cv2.IMREAD_COLOR,
+            )
+
+            if image_bgr is None:
+                raise HTTPException(
+                    status_code=(
+                        status.HTTP_400_BAD_REQUEST
+                    ),
+                    detail=(
+                        "La imagen anotada "
+                        "no es válida."
+                    ),
+                )
+
+            try:
+                annotated_image_url = (
+                    storage_service
+                    .save_annotated_image(
+                        image_bgr
+                    )
+                )
+
+            except StorageError as exc:
+                raise HTTPException(
+                    status_code=(
+                        status.HTTP_503_SERVICE_UNAVAILABLE
+                    ),
+                    detail=(
+                        "No se pudo almacenar "
+                        "la imagen anotada."
+                    ),
+                ) from exc
+
+
+    # ------------------------------------------------------
+    # DETECCIONES
+    # ------------------------------------------------------
+
+    detections = [
+        DetectionItem(
+            class_id=detection.class_id,
+
+            class_name=(
+                detection.class_name
+            ),
+
+            confidence=round(
+                detection.confidence,
+                4,
+            ),
+
+            box=[
+                round(
+                    float(value),
+                    2,
+                )
+                for value
+                in detection.box
+            ],
+        )
+
+        for detection
+        in mobile_result.detections
+    ]
+
+
+    # ------------------------------------------------------
+    # RESULTADO
+    # ------------------------------------------------------
+
+    result = AnalysisData(
+        sample_id=sample_id,
+
+        total_particles=(
+            mobile_result.total_particles
+        ),
+
+        confidence=round(
+            mobile_result.confidence,
+            4,
+        ),
+
+        breakdown=dict(
+            mobile_result.breakdown
+        ),
+
+        detections=detections,
+
+        processing_time_ms=round(
+            mobile_result.processing_time_ms,
+            2,
+        ),
+
+        annotated_image_url=(
+            annotated_image_url
+        ),
+    )
+
+
+    # ------------------------------------------------------
+    # BASE DE DATOS
     # ------------------------------------------------------
 
     registro = save_analysis(
@@ -217,7 +344,6 @@ async def analyze_sample(
         result=result,
         user_id=usuario.id_usuario,
     )
-
 
     result.result_id = (
         registro.id_resultado
@@ -230,11 +356,13 @@ async def analyze_sample(
 
     return AnalysisResponse(
         success=True,
+
         message=(
-            "Análisis completado. "
+            "Análisis móvil guardado. "
             f"Se detectaron "
             f"{result.total_particles} "
             "partículas."
         ),
+
         data=result,
     )

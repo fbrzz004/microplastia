@@ -1,24 +1,23 @@
 import 'package:flutter/foundation.dart';
 
-import '../core/network/api_exception.dart';
 import '../services/analysis_service.dart';
+import '../services/annotation_service.dart';
+import '../services/tflite_inference_service.dart';
 
 class AnalysisViewModel extends ChangeNotifier {
-  final AnalysisService _service = AnalysisService();
+  final AnalysisService _analysisService =
+  AnalysisService();
+
+  final TfliteInferenceService _tfliteService =
+  TfliteInferenceService();
 
   bool _isLoading = false;
-
   String? _errorMessage;
-
-  bool _sessionExpired = false;
-
   Map<String, dynamic>? _resultado;
 
   bool get isLoading => _isLoading;
 
   String? get errorMessage => _errorMessage;
-
-  bool get sessionExpired => _sessionExpired;
 
   Map<String, dynamic>? get resultado => _resultado;
 
@@ -31,29 +30,73 @@ class AnalysisViewModel extends ChangeNotifier {
     }
 
     _isLoading = true;
-
     _errorMessage = null;
     _resultado = null;
-    _sessionExpired = false;
 
     notifyListeners();
 
     try {
-      _resultado = await _service.analizarImagen(
-        bytes: bytes,
-        filename: filename,
+      // ================================================
+      // 1. CARGAR TFLITE
+      // ================================================
+
+      await _tfliteService.loadModel();
+
+      // ================================================
+      // 2. INFERENCIA LOCAL
+      // ================================================
+
+      final resultadoLocal =
+      await _tfliteService.analyzeImage(
+        bytes,
+      );
+
+      debugPrint(
+        '✅ Inferencia local: '
+            '${resultadoLocal.totalParticles} detecciones',
+      );
+
+      // ================================================
+      // 3. GENERAR IMAGEN ANOTADA
+      // ================================================
+
+      final annotatedBytes =
+      AnnotationService.generateAnnotatedImage(
+        originalBytes: bytes,
+        result: resultadoLocal,
+      );
+
+      debugPrint(
+        '✅ Imagen anotada generada: '
+            '${annotatedBytes.length} bytes',
+      );
+
+      // ================================================
+      // 4. GUARDAR EN BACKEND
+      // ================================================
+
+      _resultado =
+      await _analysisService.guardarAnalisisMovil(
+        resultado: resultadoLocal,
+        annotatedBytes: annotatedBytes,
+      );
+
+      debugPrint(
+        '✅ Resultado guardado en backend',
       );
 
       return true;
-    } on ApiException catch (e) {
-      _errorMessage = e.message;
+    } catch (e) {
+      debugPrint(
+        '❌ Error durante análisis móvil: $e',
+      );
 
-      _sessionExpired = e.sessionExpired;
-
-      return false;
-    } catch (_) {
-      _errorMessage = 'No se pudo analizar la imagen. '
-          'Inténtalo nuevamente.';
+      _errorMessage = e
+          .toString()
+          .replaceFirst(
+        'Exception: ',
+        '',
+      );
 
       return false;
     } finally {
@@ -66,8 +109,14 @@ class AnalysisViewModel extends ChangeNotifier {
   void limpiarResultado() {
     _resultado = null;
     _errorMessage = null;
-    _sessionExpired = false;
 
     notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _tfliteService.close();
+
+    super.dispose();
   }
 }

@@ -6,284 +6,116 @@ import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 
 import '../core/config/app_config.dart';
-import '../core/network/api_error_mapper.dart';
-import '../core/network/api_exception.dart';
 import 'session_service.dart';
+import 'tflite_inference_service.dart';
 
 class AnalysisService {
-  static const int _maxUploadBytes = 10 * 1024 * 1024;
+  static const Duration _timeout = Duration(seconds: 30);
 
-  // La inferencia puede tardar más que una petición normal.
-  static const Duration _analysisTimeout = Duration(seconds: 120);
-
-  MediaType _contentTypeFor(
-    String filename,
-  ) {
-    final parts = filename.toLowerCase().split('.');
-
-    if (parts.length < 2) {
-      throw const ApiException(
-        message: 'No se pudo identificar el formato de la imagen.',
-      );
-    }
-
-    final extension = parts.last;
-
-    switch (extension) {
-      case 'jpg':
-      case 'jpeg':
-        return MediaType(
-          'image',
-          'jpeg',
-        );
-
-      case 'png':
-        return MediaType(
-          'image',
-          'png',
-        );
-
-      case 'webp':
-        return MediaType(
-          'image',
-          'webp',
-        );
-
-      case 'heic':
-        return MediaType(
-          'image',
-          'heic',
-        );
-
-      case 'heif':
-        return MediaType(
-          'image',
-          'heif',
-        );
-
-      default:
-        throw const ApiException(
-          message: 'Formato no compatible. '
-              'Usa JPG, JPEG, PNG, WEBP, HEIC o HEIF.',
-        );
-    }
-  }
-
-  Future<Map<String, dynamic>> analizarImagen({
-    required Uint8List bytes,
-    required String filename,
+  Future<Map<String, dynamic>> guardarAnalisisMovil({
+    required TfliteAnalysisResult resultado,
+    required Uint8List annotatedBytes,
   }) async {
-    // =====================================================
-    // VALIDACIONES LOCALES
-    // =====================================================
+    final token = await SessionService.getToken();
 
-    if (bytes.isEmpty) {
-      throw const ApiException(
-        message: 'La imagen seleccionada está vacía.',
+    if (token == null || token.isEmpty) {
+      throw Exception(
+        'Tu sesión expiró. Inicia sesión de nuevo.',
       );
     }
 
-    if (bytes.length > _maxUploadBytes) {
-      throw const ApiException(
-        statusCode: 413,
-        message: 'La imagen supera el tamaño máximo '
-            'permitido de 10 MB.',
-      );
-    }
-
-    final contentType = _contentTypeFor(
-      filename,
+    final uri = Uri.parse(
+      '${AppConfig.apiBaseUrl}/api/v1/analyze/mobile',
     );
 
-    // =====================================================
-    // SESIÓN
-    // =====================================================
-
-    final token = await SessionService.getValidToken();
-
-    if (token == null) {
-      throw const ApiException(
-        statusCode: 401,
-        sessionExpired: true,
-        message: 'Tu sesión expiró. '
-            'Inicia sesión nuevamente.',
-      );
-    }
-
-    // =====================================================
-    // REQUEST
-    // =====================================================
+    final payload = {
+      'total_particles': resultado.totalParticles,
+      'confidence': resultado.averageConfidence,
+      'breakdown': resultado.breakdown,
+      'detections': resultado.detections
+          .map(
+            (detection) => detection.toJson(),
+      )
+          .toList(),
+      'processing_time_ms': resultado.inferenceTimeMs,
+    };
 
     final request = http.MultipartRequest(
       'POST',
-      Uri.parse(
-        AppConfig.analyzeEndpoint,
-      ),
+      uri,
     );
 
-    request.headers['Authorization'] = 'Bearer $token';
+    request.headers['Authorization'] =
+    'Bearer $token';
 
-    request.headers['Accept'] = 'application/json';
+    request.fields['payload'] =
+        jsonEncode(payload);
 
     request.files.add(
       http.MultipartFile.fromBytes(
-        'file',
-        bytes,
-        filename: filename,
-        contentType: contentType,
+        'annotated_file',
+        annotatedBytes,
+        filename: 'annotated.jpg',
+        contentType: MediaType(
+          'image',
+          'jpeg',
+        ),
       ),
     );
 
-    // =====================================================
-    // ENVÍO
-    // =====================================================
-
-    late final http.StreamedResponse response;
+    late http.StreamedResponse streamedResponse;
 
     try {
-      response = await request.send().timeout(
-            _analysisTimeout,
-          );
+      streamedResponse = await request
+          .send()
+          .timeout(_timeout);
     } on TimeoutException {
-      throw const ApiException(
-        message: 'El análisis está tardando demasiado. '
-            'Inténtalo nuevamente.',
+      throw Exception(
+        'El servidor no respondió. '
+            'Verifica tu conexión e inténtalo nuevamente.',
       );
-    } on http.ClientException {
-      throw const ApiException(
-        message: 'No se pudo conectar con el servidor. '
-            'Verifica tu conexión.',
+    } catch (e) {
+      throw Exception(
+        'No se pudo conectar con el servidor: $e',
       );
     }
 
-    // =====================================================
-    // LEER RESPUESTA
-    // =====================================================
+    final body = await streamedResponse.stream
+        .bytesToString()
+        .timeout(_timeout);
 
-    late final String body;
+    dynamic decoded;
 
     try {
-      body = await response.stream.bytesToString().timeout(
-            _analysisTimeout,
-          );
-    } on TimeoutException {
-      throw const ApiException(
-        message: 'El servidor tardó demasiado '
-            'en devolver el resultado.',
+      decoded = jsonDecode(body);
+    } on FormatException {
+      throw Exception(
+        'El servidor devolvió una respuesta no válida.',
       );
     }
-
-    final decoded = _decodeResponse(
-      body,
-    );
-
-    // =====================================================
-    // SESIÓN EXPIRADA
-    // =====================================================
-
-    if (response.statusCode == 401) {
-      await SessionService.clearToken();
-
-      throw ApiErrorMapper.fromStatusCode(
-        401,
-      );
-    }
-
-    // =====================================================
-    // OTROS ERRORES HTTP
-    // =====================================================
-
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw ApiErrorMapper.fromStatusCode(
-        response.statusCode,
-        serverMessage: _extractMessage(
-          decoded,
-        ),
-      );
-    }
-
-    // =====================================================
-    // RESPUESTA INVÁLIDA
-    // =====================================================
 
     if (decoded is! Map<String, dynamic>) {
-      throw const ApiException(
-        message: 'El servidor devolvió '
-            'una respuesta no válida.',
+      throw Exception(
+        'Formato de respuesta inesperado.',
+      );
+    }
+
+    if (
+    streamedResponse.statusCode < 200 ||
+        streamedResponse.statusCode >= 300) {
+      throw Exception(
+        'Error ${streamedResponse.statusCode}: '
+            '${decoded['detail'] ?? decoded['message'] ?? body}',
       );
     }
 
     if (decoded['success'] == false) {
-      throw ApiException(
-        message: _extractMessage(
-              decoded,
-            ) ??
-            'No se pudo analizar la imagen.',
+      throw Exception(
+        decoded['message'] ??
+            'No se pudo guardar el análisis.',
       );
     }
 
     return decoded;
-  }
-
-  // =======================================================
-  // JSON
-  // =======================================================
-
-  dynamic _decodeResponse(
-    String body,
-  ) {
-    if (body.trim().isEmpty) {
-      return null;
-    }
-
-    try {
-      return jsonDecode(body);
-    } on FormatException {
-      return null;
-    }
-  }
-
-  // =======================================================
-  // MENSAJES DEL BACKEND
-  // =======================================================
-
-  String? _extractMessage(
-    dynamic decoded,
-  ) {
-    if (decoded is! Map) {
-      return null;
-    }
-
-    final detail = decoded['detail'];
-
-    if (detail is String && detail.trim().isNotEmpty) {
-      return detail;
-    }
-
-    if (detail is Map) {
-      final message = detail['message'];
-
-      if (message is String && message.trim().isNotEmpty) {
-        return message;
-      }
-
-      final errors = detail['errors'];
-
-      if (errors is List && errors.isNotEmpty) {
-        return errors
-            .map(
-              (error) => error.toString(),
-            )
-            .join('\n');
-      }
-    }
-
-    final message = decoded['message'];
-
-    if (message is String && message.trim().isNotEmpty) {
-      return message;
-    }
-
-    return null;
   }
 }

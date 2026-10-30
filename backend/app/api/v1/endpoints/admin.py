@@ -2,7 +2,6 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.core.config import settings
 from app.core.security import get_current_admin
 from app.db.session import get_db
 
@@ -16,13 +15,31 @@ from app.schemas.admin import (
     DashboardAdminResponse,
 )
 
-from app.services.inference import inference_service
-
 
 router = APIRouter(
     prefix="/admin",
     tags=["Admin"]
 )
+
+
+# ==========================================
+# CONFIGURACIÓN DEL MODELO MÓVIL
+# ==========================================
+
+MODELO_ACTIVO = "best.tflite"
+
+MODELO_OPERATIVO = True
+
+RESOLUCION_INFERENCIA = 320
+
+UMBRAL_CONFIANZA = 0.25
+
+CLASES_MODELO = {
+    0: "partícula orgánica",
+    1: "fibra",
+    2: "fragmento",
+    3: "gránulo",
+}
 
 
 # ==========================================
@@ -124,7 +141,11 @@ def obtener_dashboard(
             ),
             2
         )
-        if ultimo_resultado
+        if (
+            ultimo_resultado
+            and ultimo_resultado.tiempo_procesamiento_ms
+            is not None
+        )
         else None
     )
 
@@ -141,7 +162,9 @@ def obtener_dashboard(
     }
 
     resultados = (
-        db.query(ResultadoAnalisis.desglose)
+        db.query(
+            ResultadoAnalisis.desglose
+        )
         .all()
     )
 
@@ -152,67 +175,90 @@ def obtener_dashboard(
 
         for clase, cantidad in desglose.items():
 
-            nombre = str(clase).strip().lower()
+            nombre = (
+                str(clase)
+                .strip()
+                .lower()
+            )
+
+            cantidad_entera = int(
+                cantidad
+            )
 
             if nombre in distribucion:
-                distribucion[nombre] += int(cantidad)
+                distribucion[nombre] += (
+                    cantidad_entera
+                )
 
             elif nombre == "granulo":
-                distribucion["gránulo"] += int(cantidad)
+                distribucion["gránulo"] += (
+                    cantidad_entera
+                )
 
             elif nombre == "pelicula":
-                distribucion["película"] += int(cantidad)
+                distribucion["película"] += (
+                    cantidad_entera
+                )
 
 
     # --------------------------------------
-    # MODELO DE IA REALMENTE CARGADO
+    # MODELO DE IA
     # --------------------------------------
+    #
+    # La inferencia ya no se ejecuta
+    # en FastAPI / Render.
+    #
+    # El modelo best.tflite se ejecuta
+    # localmente en Flutter / Android.
+    # --------------------------------------
+
+    modelo_activo = MODELO_ACTIVO
 
     modelo_operativo = (
-        inference_service.model is not None
+        MODELO_OPERATIVO
     )
 
-    modelo_activo = (
-        inference_service.model_path.name
-        if inference_service.model_path
-        else "No disponible"
+    numero_clases = len(
+        CLASES_MODELO
     )
 
 
-    # Cantidad real de clases expuestas
-    # por el modelo actualmente cargado.
-    numero_clases = 0
-
-    if (
-        inference_service.model is not None
-        and hasattr(
-            inference_service.model,
-            "names"
-        )
-    ):
-        numero_clases = len(
-            inference_service.model.names
-        )
-
+    # --------------------------------------
+    # RESPUESTA
+    # --------------------------------------
 
     return DashboardAdminResponse(
-        muestras_analizadas=muestras_analizadas,
-        particulas_detectadas=particulas_detectadas,
-        usuarios_registrados=usuarios_registrados,
-
-        modelo_activo=modelo_activo,
-        modelo_operativo=modelo_operativo,
-
-        # En inference.py se ejecuta YOLO
-        # utilizando imgsz=640.
-        resolucion_inferencia=640,
-
-        # Valor real configurado en Settings.
-        umbral_confianza=(
-            settings.confidence_threshold
+        muestras_analizadas=(
+            muestras_analizadas
         ),
 
-        numero_clases=numero_clases,
+        particulas_detectadas=(
+            particulas_detectadas
+        ),
+
+        usuarios_registrados=(
+            usuarios_registrados
+        ),
+
+        modelo_activo=(
+            modelo_activo
+        ),
+
+        modelo_operativo=(
+            modelo_operativo
+        ),
+
+        resolucion_inferencia=(
+            RESOLUCION_INFERENCIA
+        ),
+
+        umbral_confianza=(
+            UMBRAL_CONFIANZA
+        ),
+
+        numero_clases=(
+            numero_clases
+        ),
 
         tiempo_promedio_inferencia_ms=(
             tiempo_promedio_inferencia_ms
@@ -222,7 +268,9 @@ def obtener_dashboard(
             ultima_inferencia_ms
         ),
 
-        distribucion=distribucion
+        distribucion=(
+            distribucion
+        )
     )
 
 
@@ -287,14 +335,37 @@ def listar_usuarios(
 
         respuesta.append(
             UsuarioAdminResponse(
-                id_usuario=usuario.id_usuario,
-                nombre=usuario.nombre,
-                apellido=usuario.apellido,
-                correo=usuario.correo,
-                rol=usuario.rol,
-                estado=usuario.estado,
-                muestras_realizadas=muestras_realizadas,
-                ultimo_analisis=ultimo_analisis
+                id_usuario=(
+                    usuario.id_usuario
+                ),
+
+                nombre=(
+                    usuario.nombre
+                ),
+
+                apellido=(
+                    usuario.apellido
+                ),
+
+                correo=(
+                    usuario.correo
+                ),
+
+                rol=(
+                    usuario.rol
+                ),
+
+                estado=(
+                    usuario.estado
+                ),
+
+                muestras_realizadas=(
+                    muestras_realizadas
+                ),
+
+                ultimo_analisis=(
+                    ultimo_analisis
+                )
             )
         )
 
@@ -341,17 +412,28 @@ def listar_muestras(
 
     respuesta = []
 
-    for muestra, resultado, usuario in registros:
+    for (
+        muestra,
+        resultado,
+        usuario
+    ) in registros:
 
-        nombre_usuario = usuario.nombre
+        nombre_usuario = (
+            usuario.nombre
+        )
 
         if usuario.apellido:
-            nombre_usuario += f" {usuario.apellido}"
+            nombre_usuario += (
+                f" {usuario.apellido}"
+            )
 
         codigo_muestra = (
             muestra.descripcion
             if muestra.descripcion
-            else f"MUESTRA-{muestra.id_muestra}"
+            else (
+                f"MUESTRA-"
+                f"{muestra.id_muestra}"
+            )
         )
 
         fecha = (
@@ -362,11 +444,25 @@ def listar_muestras(
 
         respuesta.append(
             MuestraAdminResponse(
-                id_muestra=muestra.id_muestra,
-                codigo=codigo_muestra,
-                usuario=nombre_usuario,
-                correo=usuario.correo,
-                fecha=fecha,
+                id_muestra=(
+                    muestra.id_muestra
+                ),
+
+                codigo=(
+                    codigo_muestra
+                ),
+
+                usuario=(
+                    nombre_usuario
+                ),
+
+                correo=(
+                    usuario.correo
+                ),
+
+                fecha=(
+                    fecha
+                ),
 
                 total_particulas=(
                     resultado.total_particulas
