@@ -1,4 +1,5 @@
 import gc
+import logging
 import time
 import uuid
 from pathlib import Path
@@ -19,6 +20,9 @@ from app.schemas.analysis import (
 from app.services.storage_service import (
     storage_service,
 )
+
+
+logger = logging.getLogger("microplastia")
 
 
 # ==========================================================
@@ -138,7 +142,7 @@ class InferenceService:
     @staticmethod
     def _resize_for_inference(
         image,
-        max_dimension: int = 960,
+        max_dimension: int = settings.inference_max_dimension,
     ):
         """
         Reduce imágenes muy grandes antes de enviarlas
@@ -194,6 +198,7 @@ class InferenceService:
     ) -> AnalysisData:
 
         start_time = time.perf_counter()
+        stage_time = start_time
 
         if self.model is None:
             raise RuntimeError(
@@ -223,6 +228,12 @@ class InferenceService:
             )
         )
 
+        validation_ms = round(
+            (time.perf_counter() - stage_time) * 1000,
+            2,
+        )
+        stage_time = time.perf_counter()
+
         # Los bytes originales ya no son necesarios.
         del image_bytes
 
@@ -238,6 +249,12 @@ class InferenceService:
             )
         )
 
+        original_storage_ms = round(
+            (time.perf_counter() - stage_time) * 1000,
+            2,
+        )
+        stage_time = time.perf_counter()
+
 
         # --------------------------------------------------
         # REDUCIR IMAGEN PARA YOLO
@@ -246,7 +263,7 @@ class InferenceService:
         inference_image = (
             self._resize_for_inference(
                 img_bgr,
-                max_dimension=960,
+                max_dimension=settings.inference_max_dimension,
             )
         )
 
@@ -267,9 +284,8 @@ class InferenceService:
             source=img_bgr,
             conf=settings.confidence_threshold,
 
-            # Antes estaba en 640.
-            # 416 consume bastante menos RAM.
-            imgsz=416,
+            # 320 reduce trabajo de CPU y RAM en Render.
+            imgsz=settings.inference_imgsz,
 
             # Render no tiene GPU.
             device="cpu",
@@ -280,6 +296,12 @@ class InferenceService:
             stream=False,
         )
 
+
+        yolo_ms = round(
+            (time.perf_counter() - stage_time) * 1000,
+            2,
+        )
+        stage_time = time.perf_counter()
 
         result = results[0]
 
@@ -461,11 +483,22 @@ class InferenceService:
         # GUARDAR IMAGEN ANOTADA
         # --------------------------------------------------
 
+        drawing_ms = round(
+            (time.perf_counter() - stage_time) * 1000,
+            2,
+        )
+        stage_time = time.perf_counter()
+
         annotated_image_url = (
             storage_service
             .save_annotated_image(
                 img_bgr
             )
+        )
+
+        annotated_storage_ms = round(
+            (time.perf_counter() - stage_time) * 1000,
+            2,
         )
 
 
@@ -487,6 +520,22 @@ class InferenceService:
             )
             * 1000,
             2,
+        )
+
+        logger.info(
+            "Analysis timing | sample_id=%s | validation_ms=%s | "
+            "original_storage_ms=%s | yolo_ms=%s | drawing_ms=%s | "
+            "annotated_storage_ms=%s | total_ms=%s | imgsz=%s | "
+            "max_dimension=%s",
+            sample_id,
+            validation_ms,
+            original_storage_ms,
+            yolo_ms,
+            drawing_ms,
+            annotated_storage_ms,
+            elapsed_ms,
+            settings.inference_imgsz,
+            settings.inference_max_dimension,
         )
 
 

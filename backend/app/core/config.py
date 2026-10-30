@@ -111,6 +111,18 @@ class Settings(BaseSettings):
         0.25
     )
 
+    inference_imgsz: int = Field(
+        default=320,
+        ge=160,
+        le=1280,
+    )
+
+    inference_max_dimension: int = Field(
+        default=800,
+        ge=320,
+        le=4096,
+    )
+
 
     # ======================================================
     # ARCHIVOS
