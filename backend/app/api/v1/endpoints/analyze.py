@@ -73,6 +73,21 @@ class MobileAnalysisRequest(BaseModel):
         ge=0,
     )
 
+    modelo_nombre: Optional[str] = Field(
+        default=None,
+        max_length=100,
+    )
+
+    modelo_version: Optional[str] = Field(
+        default=None,
+        max_length=30,
+    )
+
+    modelo_origen: Optional[str] = Field(
+        default=None,
+        max_length=30,
+    )
+
     confidence: float = Field(
         ge=0.0,
         le=1.0,
@@ -136,6 +151,9 @@ async def save_mobile_analysis(
             )
         )
 
+        # --------------------------------------------------
+        # DIAGNÓSTICO: DATOS RECIBIDOS DESDE FLUTTER
+        # --------------------------------------------------
     except (
         json.JSONDecodeError,
         ValueError,
@@ -332,7 +350,24 @@ async def save_mobile_analysis(
         annotated_image_url=(
             annotated_image_url
         ),
+
+        modelo_nombre=(
+            mobile_result.modelo_nombre
+        ),
+
+        modelo_version=(
+            mobile_result.modelo_version
+        ),
+
+        modelo_origen=(
+            mobile_result.modelo_origen
+        ),
     )
+
+
+    # ------------------------------------------------------
+    # DIAGNÓSTICO: ANALYSIS DATA
+    # ------------------------------------------------------
 
 
     # ------------------------------------------------------

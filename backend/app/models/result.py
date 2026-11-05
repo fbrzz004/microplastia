@@ -18,23 +18,88 @@ class ResultadoAnalisis(Base):
 
     __tablename__ = "resultado_analisis"
 
-    id_resultado = Column(Integer, primary_key=True, index=True)
+    id_resultado = Column(
+        Integer,
+        primary_key=True,
+        index=True,
+    )
+
     id_muestra = Column(
         Integer,
         ForeignKey("muestra.id_muestra"),
         nullable=False,
         index=True,
     )
-    total_particulas = Column(Integer, nullable=False, default=0)
-    confianza_promedio = Column(Float, nullable=False, default=0.0)
-    desglose = Column(JSON, nullable=False, default=dict)
-    detecciones = Column(JSON, nullable=False, default=list)
-    tiempo_procesamiento_ms = Column(Float, nullable=False, default=0.0)
-    imagen_anotada_url = Column(String(255), nullable=True)
+
+    total_particulas = Column(
+        Integer,
+        nullable=False,
+        default=0,
+    )
+
+    confianza_promedio = Column(
+        Float,
+        nullable=False,
+        default=0.0,
+    )
+
+    desglose = Column(
+        JSON,
+        nullable=False,
+        default=dict,
+    )
+
+    detecciones = Column(
+        JSON,
+        nullable=False,
+        default=list,
+    )
+
+    tiempo_procesamiento_ms = Column(
+        Float,
+        nullable=False,
+        default=0.0,
+    )
+
+    imagen_anotada_url = Column(
+        String(255),
+        nullable=True,
+    )
+
+    # ---------------------------------------------------------
+    # TRAZABILIDAD DEL MODELO DE IA
+    # ---------------------------------------------------------
+
+    modelo_nombre = Column(
+        String(100),
+        nullable=True,
+    )
+
+    modelo_version = Column(
+        String(30),
+        nullable=True,
+    )
+
+    modelo_origen = Column(
+        String(30),
+        nullable=True,
+    )
+
+    # ---------------------------------------------------------
+    # FECHA
+    # ---------------------------------------------------------
+
     fecha_creacion = Column(
         DateTime(timezone=True),
         server_default=func.now(),
         nullable=False,
     )
 
-    muestra = relationship("Muestra", back_populates="resultados")
+    # ---------------------------------------------------------
+    # RELACIONES
+    # ---------------------------------------------------------
+
+    muestra = relationship(
+        "Muestra",
+        back_populates="resultados",
+    )

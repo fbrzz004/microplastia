@@ -30,33 +30,53 @@ def save_analysis(
 
     registro = ResultadoAnalisis(
         id_muestra=muestra.id_muestra,
+
         total_particulas=(
             result.total_particles
         ),
+
         confianza_promedio=(
             result.confidence
         ),
+
         desglose=dict(
             result.breakdown
         ),
+
         detecciones=[
             detection.model_dump()
             for detection
             in result.detections
         ],
+
         tiempo_procesamiento_ms=(
             result.processing_time_ms
         ),
+
         imagen_anotada_url=(
             result.annotated_image_url
         ),
+
+        modelo_nombre=(
+            result.modelo_nombre
+        ),
+
+        modelo_version=(
+            result.modelo_version
+        ),
+
+        modelo_origen=(
+            result.modelo_origen
+        ),
     )
 
+    
     db.add(registro)
 
     db.commit()
 
     db.refresh(registro)
+
 
     return registro
 

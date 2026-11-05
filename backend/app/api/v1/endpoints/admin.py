@@ -8,6 +8,7 @@ from app.db.session import get_db
 from app.models.user import Usuario
 from app.models.sample import Muestra
 from app.models.result import ResultadoAnalisis
+from app.models.model_ai import ModeloIA
 
 from app.schemas.admin import (
     UsuarioAdminResponse,
@@ -20,26 +21,6 @@ router = APIRouter(
     prefix="/admin",
     tags=["Admin"]
 )
-
-
-# ==========================================
-# CONFIGURACIÓN DEL MODELO MÓVIL
-# ==========================================
-
-MODELO_ACTIVO = "best.tflite"
-
-MODELO_OPERATIVO = True
-
-RESOLUCION_INFERENCIA = 320
-
-UMBRAL_CONFIANZA = 0.25
-
-CLASES_MODELO = {
-    0: "partícula orgánica",
-    1: "fibra",
-    2: "fragmento",
-    3: "gránulo",
-}
 
 
 # ==========================================
@@ -115,7 +96,10 @@ def obtener_dashboard(
     )
 
     tiempo_promedio_inferencia_ms = (
-        round(float(tiempo_promedio), 2)
+        round(
+            float(tiempo_promedio),
+            2
+        )
         if tiempo_promedio is not None
         else 0.0
     )
@@ -202,25 +186,65 @@ def obtener_dashboard(
 
 
     # --------------------------------------
-    # MODELO DE IA
-    # --------------------------------------
-    #
-    # La inferencia ya no se ejecuta
-    # en FastAPI / Render.
-    #
-    # El modelo best.tflite se ejecuta
-    # localmente en Flutter / Android.
+    # MODELO DE IA ACTIVO
     # --------------------------------------
 
-    modelo_activo = MODELO_ACTIVO
-
-    modelo_operativo = (
-        MODELO_OPERATIVO
+    modelo = (
+        db.query(ModeloIA)
+        .filter(
+            ModeloIA.estado.is_(True)
+        )
+        .order_by(
+            ModeloIA.fecha_publicacion.desc(),
+            ModeloIA.id_modelo.desc(),
+        )
+        .first()
     )
 
-    numero_clases = len(
-        CLASES_MODELO
-    )
+    if modelo is not None:
+
+        modelo_activo = (
+            f"{modelo.nombre} v{modelo.version}"
+        )
+
+        modelo_operativo = True
+
+        resolucion_inferencia = (
+            modelo.input_size
+            if modelo.input_size is not None
+            else 320
+        )
+
+        umbral_confianza = (
+            float(
+                modelo.confidence_threshold
+            )
+            if (
+                modelo.confidence_threshold
+                is not None
+            )
+            else 0.25
+        )
+
+        numero_clases = (
+            len(modelo.clases)
+            if modelo.clases
+            else 0
+        )
+
+    else:
+
+        modelo_activo = (
+            "Sin modelo activo"
+        )
+
+        modelo_operativo = False
+
+        resolucion_inferencia = 0
+
+        umbral_confianza = 0.0
+
+        numero_clases = 0
 
 
     # --------------------------------------
@@ -228,6 +252,7 @@ def obtener_dashboard(
     # --------------------------------------
 
     return DashboardAdminResponse(
+
         muestras_analizadas=(
             muestras_analizadas
         ),
@@ -249,11 +274,11 @@ def obtener_dashboard(
         ),
 
         resolucion_inferencia=(
-            RESOLUCION_INFERENCIA
+            resolucion_inferencia
         ),
 
         umbral_confianza=(
-            UMBRAL_CONFIANZA
+            umbral_confianza
         ),
 
         numero_clases=(
@@ -335,6 +360,7 @@ def listar_usuarios(
 
         respuesta.append(
             UsuarioAdminResponse(
+
                 id_usuario=(
                     usuario.id_usuario
                 ),
@@ -423,6 +449,7 @@ def listar_muestras(
         )
 
         if usuario.apellido:
+
             nombre_usuario += (
                 f" {usuario.apellido}"
             )
@@ -444,6 +471,7 @@ def listar_muestras(
 
         respuesta.append(
             MuestraAdminResponse(
+
                 id_muestra=(
                     muestra.id_muestra
                 ),

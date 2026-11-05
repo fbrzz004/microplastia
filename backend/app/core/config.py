@@ -169,6 +169,10 @@ class Settings(BaseSettings):
     supabase_storage_bucket: str = (
         "microplastia-images"
     )
+    
+    supabase_models_bucket: str = (
+    "microplastia-models"
+)
 
 
     # ======================================================

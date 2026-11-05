@@ -1,8 +1,11 @@
+import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:image/image.dart' as img;
 import 'package:tflite_flutter/tflite_flutter.dart';
+
+import 'model_update_service.dart';
 
 class TfliteDetection {
   final int classId;
@@ -56,9 +59,17 @@ class TfliteAnalysisResult {
   final List<TfliteDetection> detections;
   final int inferenceTimeMs;
 
+  final String modelSource;
+
+  final String modelVersion;
+  final String modelName;
+
   const TfliteAnalysisResult({
     required this.detections,
     required this.inferenceTimeMs,
+    required this.modelVersion,
+    required this.modelName,
+    required this.modelSource,
   });
 
   int get totalParticles => detections.length;
@@ -70,7 +81,7 @@ class TfliteAnalysisResult {
 
     final total = detections.fold<double>(
       0.0,
-          (sum, detection) {
+      (sum, detection) {
         return sum + detection.confidence;
       },
     );
@@ -82,8 +93,7 @@ class TfliteAnalysisResult {
     final result = <String, int>{};
 
     for (final detection in detections) {
-      result[detection.className] =
-          (result[detection.className] ?? 0) + 1;
+      result[detection.className] = (result[detection.className] ?? 0) + 1;
     }
 
     return result;
@@ -91,50 +101,179 @@ class TfliteAnalysisResult {
 }
 
 class TfliteInferenceService {
-  static const int inputSize = 320;
+  static const String _assetModelPath = 'assets/models/best.tflite';
 
-  static const double confidenceThreshold = 0.25;
+  static const String _fallbackVersion = '1.0.0';
 
-  static const double iouThreshold = 0.7;
+  static const String _fallbackModelName = 'YOLOv8n';
 
-  static const Map<int, String> classNames = {
+  static const int _fallbackInputSize = 320;
+
+  static const double _fallbackConfidenceThreshold = 0.25;
+
+  static const double _fallbackIouThreshold = 0.7;
+
+  String _activeModelSource = 'fallback';
+
+  static const Map<int, String> _fallbackClassNames = {
     0: 'partícula orgánica',
     1: 'fibra',
     2: 'fragmento',
     3: 'gránulo',
   };
 
+  final ModelUpdateService _modelUpdateService = ModelUpdateService();
+
   Interpreter? _interpreter;
 
+  String _activeModelVersion = _fallbackVersion;
+
+  String _activeModelName = _fallbackModelName;
+
+  int _inputSize = _fallbackInputSize;
+
+  double _confidenceThreshold = _fallbackConfidenceThreshold;
+
+  double _iouThreshold = _fallbackIouThreshold;
+
+  Map<int, String> _classNames = Map<int, String>.from(
+    _fallbackClassNames,
+  );
+
   bool get isLoaded => _interpreter != null;
+
+  String get activeModelVersion => _activeModelVersion;
+
+  String get activeModelName => _activeModelName;
 
   Future<void> loadModel() async {
     if (_interpreter != null) {
       return;
     }
 
+    // ==========================================
+    // INTENTAR ACTUALIZACIÓN
+    // ==========================================
+
+    try {
+      final updateResult = await _modelUpdateService.checkForUpdate();
+
+      final metadata = updateResult.metadata;
+
+      _activeModelVersion = metadata.version;
+
+      _activeModelName = metadata.nombre;
+
+      _inputSize = metadata.inputSize;
+
+      _confidenceThreshold = metadata.confidenceThreshold;
+
+      _iouThreshold = metadata.iouThreshold;
+
+      if (metadata.clases.isNotEmpty) {
+        _classNames = Map<int, String>.from(
+          metadata.clases,
+        );
+      }
+
+      final localPath = updateResult.localModelPath;
+
+      if (localPath != null && localPath.trim().isNotEmpty) {
+        final file = File(
+          localPath,
+        );
+
+        if (await file.exists()) {
+          try {
+            _interpreter = Interpreter.fromFile(
+              file,
+            );
+
+            _activeModelSource = 'downloaded';
+
+            debugPrint(
+              '✅ Modelo descargado cargado: '
+              '${metadata.nombre} '
+              'v${metadata.version}',
+            );
+
+            _printTensorInfo();
+
+            return;
+          } catch (e) {
+            debugPrint(
+              '⚠️ No se pudo cargar '
+              'el modelo descargado: $e',
+            );
+
+            _interpreter?.close();
+            _interpreter = null;
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint(
+        '⚠️ No se pudo verificar '
+        'actualización del modelo: $e',
+      );
+    }
+
+    // ==========================================
+    // FALLBACK: MODELO INCLUIDO EN APK
+    // ==========================================
+
+    await _loadAssetFallback();
+  }
+
+  Future<void> _loadAssetFallback() async {
+    _activeModelSource = 'fallback';
+
+    _activeModelVersion = _fallbackVersion;
+
+    _activeModelName = _fallbackModelName;
+
+    _inputSize = _fallbackInputSize;
+
+    _confidenceThreshold = _fallbackConfidenceThreshold;
+
+    _iouThreshold = _fallbackIouThreshold;
+
+    _classNames = Map<int, String>.from(
+      _fallbackClassNames,
+    );
+
     _interpreter = await Interpreter.fromAsset(
-      'assets/models/best.tflite',
+      _assetModelPath,
     );
 
     debugPrint(
-      '✅ Modelo TFLite cargado correctamente',
+      '✅ Modelo base cargado desde APK: '
+      '$_activeModelName '
+      'v$_activeModelVersion',
     );
+
+    _printTensorInfo();
+  }
+
+  void _printTensorInfo() {
+    if (_interpreter == null) {
+      return;
+    }
 
     debugPrint(
       'Input tensors: '
-          '${_interpreter!.getInputTensors()}',
+      '${_interpreter!.getInputTensors()}',
     );
 
     debugPrint(
       'Output tensors: '
-          '${_interpreter!.getOutputTensors()}',
+      '${_interpreter!.getOutputTensors()}',
     );
   }
 
   Future<TfliteAnalysisResult> analyzeImage(
-      Uint8List imageBytes,
-      ) async {
+    Uint8List imageBytes,
+  ) async {
     if (_interpreter == null) {
       await loadModel();
     }
@@ -149,12 +288,53 @@ class TfliteInferenceService {
       );
     }
 
+    // ==========================================
+    // VALIDAR ESTRUCTURA DEL MODELO
+    // ==========================================
+
+    final inputTensors = _interpreter!.getInputTensors();
+
+    final outputTensors = _interpreter!.getOutputTensors();
+
+    if (inputTensors.isEmpty || outputTensors.isEmpty) {
+      throw Exception(
+        'El modelo no tiene tensores válidos.',
+      );
+    }
+
+    final outputShape = outputTensors.first.shape;
+
+    if (outputShape.length != 3) {
+      throw Exception(
+        'El modelo TFLite tiene '
+        'una salida incompatible.',
+      );
+    }
+
+    final outputRows = outputShape[1];
+
+    final predictionCount = outputShape[2];
+
+    final classCount = outputRows - 4;
+
+    if (classCount <= 0 || predictionCount <= 0) {
+      throw Exception(
+        'La estructura de salida '
+        'del modelo no es válida.',
+      );
+    }
+
+    // ==========================================
+    // PREPROCESAMIENTO
+    // ==========================================
+
     final originalWidth = decodedImage.width;
+
     final originalHeight = decodedImage.height;
 
     final scale = math.min(
-      inputSize / originalWidth,
-      inputSize / originalHeight,
+      _inputSize / originalWidth,
+      _inputSize / originalHeight,
     );
 
     final resizedWidth = math.max(
@@ -174,176 +354,117 @@ class TfliteInferenceService {
       interpolation: img.Interpolation.linear,
     );
 
-    final paddingX = (
-        inputSize - resizedWidth
-    ) ~/ 2;
+    final paddingX = (_inputSize - resizedWidth) ~/ 2;
 
-    final paddingY = (
-        inputSize - resizedHeight
-    ) ~/ 2;
+    final paddingY = (_inputSize - resizedHeight) ~/ 2;
 
     final input = List.generate(
       1,
-          (_) => List.generate(
+      (_) => List.generate(
         3,
-            (_) => List.generate(
-          inputSize,
-              (_) => List<double>.filled(
-            inputSize,
+        (_) => List.generate(
+          _inputSize,
+          (_) => List<double>.filled(
+            _inputSize,
             114.0 / 255.0,
           ),
         ),
       ),
     );
 
-    for (
-    int y = 0;
-    y < resizedHeight;
-    y++
-    ) {
-      for (
-      int x = 0;
-      x < resizedWidth;
-      x++
-      ) {
+    for (int y = 0; y < resizedHeight; y++) {
+      for (int x = 0; x < resizedWidth; x++) {
         final pixel = resized.getPixel(
           x,
           y,
         );
 
         final targetX = x + paddingX;
+
         final targetY = y + paddingY;
 
-        input[0][0][targetY][targetX] =
-            pixel.r.toDouble() / 255.0;
+        input[0][0][targetY][targetX] = pixel.r.toDouble() / 255.0;
 
-        input[0][1][targetY][targetX] =
-            pixel.g.toDouble() / 255.0;
+        input[0][1][targetY][targetX] = pixel.g.toDouble() / 255.0;
 
-        input[0][2][targetY][targetX] =
-            pixel.b.toDouble() / 255.0;
+        input[0][2][targetY][targetX] = pixel.b.toDouble() / 255.0;
       }
     }
 
+    // ==========================================
+    // OUTPUT DINÁMICO
+    // ==========================================
+
     final output = List.generate(
       1,
-          (_) => List.generate(
-        8,
-            (_) => List<double>.filled(
-          2100,
+      (_) => List.generate(
+        outputRows,
+        (_) => List<double>.filled(
+          predictionCount,
           0.0,
         ),
       ),
     );
 
-    final stopwatch = Stopwatch()
-      ..start();
+    final stopwatch = Stopwatch()..start();
 
     _interpreter!.run(
       input,
       output,
     );
 
-    for (int row = 0; row < 8; row++) {
-      double minValue = output[0][row][0];
-      double maxValue = output[0][row][0];
-
-      for (int i = 1; i < 2100; i++) {
-        final value = output[0][row][i];
-
-        if (value < minValue) {
-          minValue = value;
-        }
-
-        if (value > maxValue) {
-          maxValue = value;
-        }
-      }
-
-      debugPrint(
-        'OUTPUT ROW $row -> '
-            'min=$minValue max=$maxValue',
-      );
-    }
-
     stopwatch.stop();
+
+    // ==========================================
+    // POSTPROCESAMIENTO
+    // ==========================================
 
     final rawDetections = <TfliteDetection>[];
 
-    for (
-    int predictionIndex = 0;
-    predictionIndex < 2100;
-    predictionIndex++
-    ) {
+    for (int predictionIndex = 0;
+        predictionIndex < predictionCount;
+        predictionIndex++) {
       int bestClassId = 0;
 
-      double bestConfidence =
-      output[0][4][predictionIndex];
+      double bestConfidence = output[0][4][predictionIndex];
 
-      for (
-      int classId = 1;
-      classId < 4;
-      classId++
-      ) {
-        final confidence =
-        output[0][4 + classId]
-        [predictionIndex];
+      for (int classId = 1; classId < classCount; classId++) {
+        final confidence = output[0][4 + classId][predictionIndex];
 
         if (confidence > bestConfidence) {
           bestConfidence = confidence;
+
           bestClassId = classId;
         }
       }
 
-      if (
-      bestConfidence <
-          confidenceThreshold) {
+      if (bestConfidence < _confidenceThreshold) {
         continue;
       }
 
-      final centerX =
-          output[0][0][predictionIndex] *
-              inputSize;
+      final centerX = output[0][0][predictionIndex] * _inputSize;
 
-      final centerY =
-          output[0][1][predictionIndex] *
-              inputSize;
+      final centerY = output[0][1][predictionIndex] * _inputSize;
 
-      final width =
-          output[0][2][predictionIndex] *
-              inputSize;
+      final width = output[0][2][predictionIndex] * _inputSize;
 
-      final height =
-          output[0][3][predictionIndex] *
-              inputSize;
+      final height = output[0][3][predictionIndex] * _inputSize;
 
-      double x1 =
-          centerX - (width / 2.0);
+      double x1 = centerX - (width / 2.0);
 
-      double y1 =
-          centerY - (height / 2.0);
+      double y1 = centerY - (height / 2.0);
 
-      double x2 =
-          centerX + (width / 2.0);
+      double x2 = centerX + (width / 2.0);
 
-      double y2 =
-          centerY + (height / 2.0);
+      double y2 = centerY + (height / 2.0);
 
-      x1 = (
-          x1 - paddingX
-      ) / scale;
+      x1 = (x1 - paddingX) / scale;
 
-      y1 = (
-          y1 - paddingY
-      ) / scale;
+      y1 = (y1 - paddingY) / scale;
 
-      x2 = (
-          x2 - paddingX
-      ) / scale;
+      x2 = (x2 - paddingX) / scale;
 
-      y2 = (
-          y2 - paddingY
-      ) / scale;
+      y2 = (y2 - paddingY) / scale;
 
       x1 = x1.clamp(
         0.0,
@@ -365,18 +486,14 @@ class TfliteInferenceService {
         originalHeight.toDouble(),
       );
 
-      if (
-      x2 <= x1 ||
-          y2 <= y1) {
+      if (x2 <= x1 || y2 <= y1) {
         continue;
       }
 
       rawDetections.add(
         TfliteDetection(
           classId: bestClassId,
-          className:
-          classNames[bestClassId] ??
-              'desconocida',
+          className: _classNames[bestClassId] ?? 'desconocida',
           confidence: bestConfidence,
           x1: x1,
           y1: y1,
@@ -392,48 +509,43 @@ class TfliteInferenceService {
 
     debugPrint(
       '✅ Inferencia TFLite: '
-          '${stopwatch.elapsedMilliseconds} ms',
+      '${stopwatch.elapsedMilliseconds} ms',
     );
 
     debugPrint(
-      '✅ Candidatos antes de NMS: '
-          '${rawDetections.length}',
+      '✅ Modelo utilizado: '
+      '$_activeModelName '
+      'v$_activeModelVersion',
     );
 
     debugPrint(
-      '✅ Detecciones después de NMS: '
-          '${detections.length}',
+      '✅ Detecciones: '
+      '${detections.length}',
     );
-
-    for (final detection in detections) {
-      debugPrint(
-        detection.toString(),
-      );
-    }
 
     return TfliteAnalysisResult(
       detections: detections,
-      inferenceTimeMs:
-      stopwatch.elapsedMilliseconds,
+      inferenceTimeMs: stopwatch.elapsedMilliseconds,
+      modelVersion: _activeModelVersion,
+      modelName: _activeModelName,
+      modelSource: _activeModelSource,
     );
   }
 
   List<TfliteDetection> _applyNms(
-      List<TfliteDetection> detections,
-      ) {
-    final sorted =
-    List<TfliteDetection>.from(
+    List<TfliteDetection> detections,
+  ) {
+    final sorted = List<TfliteDetection>.from(
       detections,
     );
 
     sorted.sort(
-          (a, b) => b.confidence.compareTo(
+      (a, b) => b.confidence.compareTo(
         a.confidence,
       ),
     );
 
-    final selected =
-    <TfliteDetection>[];
+    final selected = <TfliteDetection>[];
 
     while (sorted.isNotEmpty) {
       final current = sorted.removeAt(
@@ -445,10 +557,8 @@ class TfliteInferenceService {
       );
 
       sorted.removeWhere(
-            (candidate) {
-          if (
-          candidate.classId !=
-              current.classId) {
+        (candidate) {
+          if (candidate.classId != current.classId) {
             return false;
           }
 
@@ -457,7 +567,7 @@ class TfliteInferenceService {
             candidate,
           );
 
-          return iou > iouThreshold;
+          return iou > _iouThreshold;
         },
       );
     }
@@ -466,9 +576,9 @@ class TfliteInferenceService {
   }
 
   double _calculateIoU(
-      TfliteDetection a,
-      TfliteDetection b,
-      ) {
+    TfliteDetection a,
+    TfliteDetection b,
+  ) {
     final intersectionX1 = math.max(
       a.x1,
       b.x1,
@@ -491,51 +601,41 @@ class TfliteInferenceService {
 
     final intersectionWidth = math.max(
       0.0,
-      intersectionX2 -
-          intersectionX1,
+      intersectionX2 - intersectionX1,
     );
 
     final intersectionHeight = math.max(
       0.0,
-      intersectionY2 -
-          intersectionY1,
+      intersectionY2 - intersectionY1,
     );
 
-    final intersectionArea =
-        intersectionWidth *
-            intersectionHeight;
+    final intersectionArea = intersectionWidth * intersectionHeight;
 
-    final areaA =
-        math.max(
+    final areaA = math.max(
           0.0,
           a.x2 - a.x1,
         ) *
-            math.max(
-              0.0,
-              a.y2 - a.y1,
-            );
-
-    final areaB =
         math.max(
+          0.0,
+          a.y2 - a.y1,
+        );
+
+    final areaB = math.max(
           0.0,
           b.x2 - b.x1,
         ) *
-            math.max(
-              0.0,
-              b.y2 - b.y1,
-            );
+        math.max(
+          0.0,
+          b.y2 - b.y1,
+        );
 
-    final unionArea =
-        areaA +
-            areaB -
-            intersectionArea;
+    final unionArea = areaA + areaB - intersectionArea;
 
     if (unionArea <= 0) {
       return 0.0;
     }
 
-    return intersectionArea /
-        unionArea;
+    return intersectionArea / unionArea;
   }
 
   void close() {

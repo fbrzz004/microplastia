@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:typed_data';
+
+import 'package:flutter/foundation.dart';
 
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
@@ -35,9 +36,12 @@ class AnalysisService {
       'detections': resultado.detections
           .map(
             (detection) => detection.toJson(),
-      )
+          )
           .toList(),
       'processing_time_ms': resultado.inferenceTimeMs,
+      'modelo_nombre': resultado.modelName,
+      'modelo_version': resultado.modelVersion,
+      'modelo_origen': resultado.modelSource,
     };
 
     final request = http.MultipartRequest(
@@ -45,11 +49,9 @@ class AnalysisService {
       uri,
     );
 
-    request.headers['Authorization'] =
-    'Bearer $token';
+    request.headers['Authorization'] = 'Bearer $token';
 
-    request.fields['payload'] =
-        jsonEncode(payload);
+    request.fields['payload'] = jsonEncode(payload);
 
     request.files.add(
       http.MultipartFile.fromBytes(
@@ -66,13 +68,11 @@ class AnalysisService {
     late http.StreamedResponse streamedResponse;
 
     try {
-      streamedResponse = await request
-          .send()
-          .timeout(_timeout);
+      streamedResponse = await request.send().timeout(_timeout);
     } on TimeoutException {
       throw Exception(
         'El servidor no respondió. '
-            'Verifica tu conexión e inténtalo nuevamente.',
+        'Verifica tu conexión e inténtalo nuevamente.',
       );
     } catch (e) {
       throw Exception(
@@ -80,9 +80,8 @@ class AnalysisService {
       );
     }
 
-    final body = await streamedResponse.stream
-        .bytesToString()
-        .timeout(_timeout);
+    final body =
+        await streamedResponse.stream.bytesToString().timeout(_timeout);
 
     dynamic decoded;
 
@@ -100,19 +99,17 @@ class AnalysisService {
       );
     }
 
-    if (
-    streamedResponse.statusCode < 200 ||
+    if (streamedResponse.statusCode < 200 ||
         streamedResponse.statusCode >= 300) {
       throw Exception(
         'Error ${streamedResponse.statusCode}: '
-            '${decoded['detail'] ?? decoded['message'] ?? body}',
+        '${decoded['detail'] ?? decoded['message'] ?? body}',
       );
     }
 
     if (decoded['success'] == false) {
       throw Exception(
-        decoded['message'] ??
-            'No se pudo guardar el análisis.',
+        decoded['message'] ?? 'No se pudo guardar el análisis.',
       );
     }
 

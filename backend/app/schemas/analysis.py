@@ -61,6 +61,22 @@ class AnalysisData(BaseModel):
         str
     ] = None
 
+    # ------------------------------------------------------
+    # TRAZABILIDAD DEL MODELO
+    # ------------------------------------------------------
+
+    modelo_nombre: Optional[
+        str
+    ] = None
+
+    modelo_version: Optional[
+        str
+    ] = None
+
+    modelo_origen: Optional[
+        str
+    ] = None
+
 
 class AnalysisResponse(BaseModel):
 

@@ -21,7 +21,10 @@ dependencies:
   url_launcher: ^6.3.3
   tflite_flutter: ^0.12.1
   image: ^4.12.0
+  path_provider: ^2.1.5
+  crypto: ^3.0.7
 
+  
 dev_dependencies:
   flutter_test:
     sdk: flutter
