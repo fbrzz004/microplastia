@@ -52,6 +52,12 @@ export interface MuestraAdmin {
   confianza_promedio: number;
 
   estado: string;
+
+  modelo_nombre: string | null;
+
+  modelo_version: string | null;
+
+  modelo_origen: string | null;
 }
 
 
@@ -83,6 +89,18 @@ export interface DashboardAdmin {
     gránulo: number;
     película: number;
   };
+
+  analisis_con_modelo: number;
+
+  uso_downloaded: number;
+
+  uso_fallback: number;
+
+  porcentaje_downloaded: number;
+
+  porcentaje_fallback: number;
+
+  alerta_fallback: boolean;
 }
 
 

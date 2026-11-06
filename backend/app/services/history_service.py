@@ -199,6 +199,10 @@ def to_history_item(
         total_particles=registro.total_particulas,
         confidence=registro.confianza_promedio,
         annotated_image_url=registro.imagen_anotada_url,
+        
+        modelo_nombre=registro.modelo_nombre,
+        modelo_version=registro.modelo_version,
+        modelo_origen=registro.modelo_origen,
     )
 
 

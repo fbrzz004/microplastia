@@ -450,7 +450,112 @@
           <span>
             Última inferencia
           </span>
+          
+          <div class="model-usage-section">
 
+            <div class="usage-title">
+              Uso reciente del modelo
+            </div>
+
+            <div class="usage-subtitle">
+              Últimos {{ datos.analisis_con_modelo }} análisis con trazabilidad
+            </div>
+
+
+            <div class="usage-row">
+
+              <div class="usage-header">
+
+                <span>
+                  Modelo actualizado
+                </span>
+
+                <strong>
+                  {{ datos.porcentaje_downloaded | number:'1.0-1' }}%
+                </strong>
+
+              </div>
+
+              <div class="usage-bar-background">
+
+                <div
+                  class="usage-bar downloaded"
+                  [style.width.%]="datos.porcentaje_downloaded"
+                >
+                </div>
+
+              </div>
+
+              <small>
+                {{ datos.uso_downloaded }} análisis
+              </small>
+
+            </div>
+
+
+            <div class="usage-row">
+
+              <div class="usage-header">
+
+                <span>
+                  Modelo de respaldo
+                </span>
+
+                <strong>
+                  {{ datos.porcentaje_fallback | number:'1.0-1' }}%
+                </strong>
+
+              </div>
+
+              <div class="usage-bar-background">
+
+                <div
+                  class="usage-bar fallback"
+                  [style.width.%]="datos.porcentaje_fallback"
+                >
+                </div>
+
+              </div>
+
+              <small>
+                {{ datos.uso_fallback }} análisis
+              </small>
+
+            </div>
+
+
+            @if (datos.alerta_fallback) {
+
+              <div class="fallback-alert">
+
+                <strong>
+                  ⚠ Uso elevado del modelo de respaldo
+                </strong>
+
+                <span>
+                  Algunos dispositivos están utilizando una versión anterior
+                  del modelo en lugar de la versión activa.
+                </span>
+
+              </div>
+
+            } @else {
+
+              <div class="fallback-ok">
+
+                <strong>
+                  ✓ Actualización del modelo funcionando correctamente
+                </strong>
+
+                <span>
+                  No se detectaron problemas relevantes con el modelo activo.
+                </span>
+
+              </div>
+
+            }
+
+          </div>
           <strong>
 
             @if (datos.ultima_inferencia_ms !== null) {

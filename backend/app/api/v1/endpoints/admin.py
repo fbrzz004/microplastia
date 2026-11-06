@@ -248,6 +248,116 @@ def obtener_dashboard(
 
 
     # --------------------------------------
+    # USO DE MODELOS
+    # ÚLTIMOS 50 ANÁLISIS
+    # --------------------------------------
+
+    analisis_modelo = (
+        db.query(ResultadoAnalisis)
+        .filter(
+            ResultadoAnalisis.modelo_version.isnot(None)
+        )
+        .order_by(
+            ResultadoAnalisis.fecha_creacion.desc(),
+            ResultadoAnalisis.id_resultado.desc()
+        )
+        .limit(50)
+        .all()
+    )
+
+    analisis_con_modelo = len(
+        analisis_modelo
+    )
+
+    uso_downloaded = sum(
+        1
+        for resultado in analisis_modelo
+        if resultado.modelo_origen == "downloaded"
+    )
+
+    uso_fallback = sum(
+        1
+        for resultado in analisis_modelo
+        if resultado.modelo_origen == "fallback"
+    )
+
+
+    # --------------------------------------
+    # PORCENTAJES DE USO
+    # --------------------------------------
+
+    if analisis_con_modelo > 0:
+
+        porcentaje_downloaded = round(
+            (
+                uso_downloaded
+                / analisis_con_modelo
+            ) * 100,
+            2
+        )
+
+        porcentaje_fallback = round(
+            (
+                uso_fallback
+                / analisis_con_modelo
+            ) * 100,
+            2
+        )
+
+    else:
+
+        porcentaje_downloaded = 0.0
+        porcentaje_fallback = 0.0
+
+
+    # --------------------------------------
+    # ALERTA INTELIGENTE DE FALLBACK
+    # --------------------------------------
+    #
+    # No genera alerta simplemente por usar
+    # fallback.
+    #
+    # Solo alerta cuando:
+    #
+    # 1. Existe un modelo activo.
+    # 2. Se está usando fallback.
+    # 3. El fallback corresponde a una versión
+    #    distinta de la versión activa.
+    # 4. El fallback supera el 20%.
+    #
+    # Ejemplo:
+    #
+    # Activo:   v1.1.0
+    # Fallback: v1.0.0
+    #
+    # Si fallback > 20% -> alerta.
+    #
+    # Activo:   v1.0.0
+    # Fallback: v1.0.0
+    #
+    # No genera alerta.
+    # --------------------------------------
+
+    fallback_version_antigua = False
+
+    if modelo is not None:
+
+        fallback_version_antigua = any(
+
+            resultado.modelo_origen == "fallback"
+            and resultado.modelo_version is not None
+            and resultado.modelo_version != modelo.version
+
+            for resultado in analisis_modelo
+        )
+
+    alerta_fallback = (
+        porcentaje_fallback > 20
+        and fallback_version_antigua
+    )
+
+
+    # --------------------------------------
     # RESPUESTA
     # --------------------------------------
 
@@ -295,6 +405,30 @@ def obtener_dashboard(
 
         distribucion=(
             distribucion
+        ),
+
+        analisis_con_modelo=(
+            analisis_con_modelo
+        ),
+
+        uso_downloaded=(
+            uso_downloaded
+        ),
+
+        uso_fallback=(
+            uso_fallback
+        ),
+
+        porcentaje_downloaded=(
+            porcentaje_downloaded
+        ),
+
+        porcentaje_fallback=(
+            porcentaje_fallback
+        ),
+
+        alerta_fallback=(
+            alerta_fallback
         )
     )
 
@@ -502,6 +636,24 @@ def listar_muestras(
                     resultado.confianza_promedio
                     if resultado
                     else 0.0
+                ),
+
+                modelo_nombre=(
+                    resultado.modelo_nombre
+                    if resultado
+                    else None
+                ),
+
+                modelo_version=(
+                    resultado.modelo_version
+                    if resultado
+                    else None
+                ),
+
+                modelo_origen=(
+                    resultado.modelo_origen
+                    if resultado
+                    else None
                 ),
 
                 estado=(

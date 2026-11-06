@@ -16,17 +16,28 @@ class HistoryItem(BaseModel):
     confidence: float
     annotated_image_url: Optional[str] = None
 
+    modelo_nombre: Optional[str] = None
+    modelo_version: Optional[str] = None
+    modelo_origen: Optional[str] = None
+
 
 class HistoryDetail(HistoryItem):
     """Detalle completo de un análisis guardado."""
 
     breakdown: Dict[str, int] = Field(default_factory=dict)
-    detections: List[DetectionItem] = Field(default_factory=list)
+
+    detections: List[DetectionItem] = Field(
+        default_factory=list
+    )
+
     processing_time_ms: float = 0.0
 
 
 class HistoryData(BaseModel):
-    items: List[HistoryItem] = Field(default_factory=list)
+    items: List[HistoryItem] = Field(
+        default_factory=list
+    )
+
     total: int = 0
     limit: int = 20
     offset: int = 0

@@ -83,6 +83,7 @@
               <th>Fecha</th>
               <th>Resultado</th>
               <th>Confianza</th>
+              <th>Modelo</th>
               <th>Estado</th>
             </tr>
 
@@ -172,6 +173,57 @@
 
                 <td>
 
+                  @if (
+                    muestra.modelo_nombre &&
+                    muestra.modelo_version
+                  ) {
+
+                    <div class="model-cell">
+
+                      <strong>
+                        {{ muestra.modelo_nombre }}
+                        v{{ muestra.modelo_version }}
+                      </strong>
+
+                      @if (
+                        muestra.modelo_origen === 'downloaded'
+                      ) {
+
+                        <span class="model-origin downloaded">
+                          Actualizado
+                        </span>
+
+                      } @else if (
+                        muestra.modelo_origen === 'fallback'
+                      ) {
+
+                        <span class="model-origin fallback">
+                          Respaldo
+                        </span>
+
+                      } @else {
+
+                        <span class="model-origin unknown">
+                          Sin información
+                        </span>
+
+                      }
+
+                    </div>
+
+                  } @else {
+
+                    <span class="no-data">
+                      —
+                    </span>
+
+                  }
+
+                </td>
+
+
+                <td>
+
                   <span
                     class="status-badge"
                     [class.analyzed]="muestra.estado === 'Analizada'"
@@ -192,7 +244,7 @@
               <tr>
 
                 <td
-                  colspan="6"
+                  colspan="7"
                   class="empty-message"
                 >
                   No hay muestras registradas.

@@ -285,6 +285,58 @@ tbody tr:hover {
 }
 
 /* =========================
+   MODELO
+========================= */
+
+.model-cell {
+  display: flex;
+  flex-direction: column;
+
+  gap: 6px;
+}
+
+.model-cell strong {
+  color: #111825;
+
+  font-size: 11px;
+  font-weight: 600;
+
+  white-space: nowrap;
+}
+
+.model-origin {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  width: fit-content;
+
+  padding: 4px 8px;
+
+  border-radius: 999px;
+
+  font-size: 9px;
+  font-weight: 600;
+
+  white-space: nowrap;
+}
+
+.model-origin.downloaded {
+  background: #e9f8ef;
+  color: #23824a;
+}
+
+.model-origin.fallback {
+  background: #fff5e8;
+  color: #b66a00;
+}
+
+.model-origin.unknown {
+  background: #f2f4f7;
+  color: #667085;
+}
+
+/* =========================
    ESTADO
 ========================= */
 

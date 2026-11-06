@@ -25,6 +25,10 @@ class MuestraAdminResponse(BaseModel):
     confianza_promedio: float
     estado: str
 
+    modelo_nombre: str | None = None
+    modelo_version: str | None = None
+    modelo_origen: str | None = None
+
 
 class DashboardAdminResponse(BaseModel):
     muestras_analizadas: int
@@ -42,3 +46,15 @@ class DashboardAdminResponse(BaseModel):
     ultima_inferencia_ms: float | None = None
 
     distribucion: dict[str, int]
+
+    # Uso del modelo en los últimos 50 análisis
+    analisis_con_modelo: int
+    uso_downloaded: int
+    uso_fallback: int
+
+    porcentaje_downloaded: float
+    porcentaje_fallback: float
+
+    # Solo se activa cuando existe un problema real
+    # con una versión fallback antigua.
+    alerta_fallback: bool
