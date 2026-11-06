@@ -170,16 +170,19 @@ def obtener_dashboard(
             )
 
             if nombre in distribucion:
+
                 distribucion[nombre] += (
                     cantidad_entera
                 )
 
             elif nombre == "granulo":
+
                 distribucion["gránulo"] += (
                     cantidad_entera
                 )
 
             elif nombre == "pelicula":
+
                 distribucion["película"] += (
                     cantidad_entera
                 )
@@ -234,9 +237,7 @@ def obtener_dashboard(
 
     else:
 
-        modelo_activo = (
-            "Sin modelo activo"
-        )
+        modelo_activo = "Sin modelo activo"
 
         modelo_operativo = False
 
@@ -313,41 +314,15 @@ def obtener_dashboard(
     # --------------------------------------
     # ALERTA INTELIGENTE DE FALLBACK
     # --------------------------------------
-    #
-    # No genera alerta simplemente por usar
-    # fallback.
-    #
-    # Solo alerta cuando:
-    #
-    # 1. Existe un modelo activo.
-    # 2. Se está usando fallback.
-    # 3. El fallback corresponde a una versión
-    #    distinta de la versión activa.
-    # 4. El fallback supera el 20%.
-    #
-    # Ejemplo:
-    #
-    # Activo:   v1.1.0
-    # Fallback: v1.0.0
-    #
-    # Si fallback > 20% -> alerta.
-    #
-    # Activo:   v1.0.0
-    # Fallback: v1.0.0
-    #
-    # No genera alerta.
-    # --------------------------------------
 
     fallback_version_antigua = False
 
     if modelo is not None:
 
         fallback_version_antigua = any(
-
             resultado.modelo_origen == "fallback"
             and resultado.modelo_version is not None
             and resultado.modelo_version != modelo.version
-
             for resultado in analisis_modelo
         )
 
@@ -435,6 +410,7 @@ def obtener_dashboard(
 
 # ==========================================
 # USUARIOS DE LA APLICACIÓN MÓVIL
+# OPTIMIZADO: UNA CONSULTA
 # ==========================================
 
 @router.get(
@@ -447,89 +423,100 @@ def listar_usuarios(
 ):
 
     usuarios = (
-        db.query(Usuario)
+        db.query(
+            Usuario.id_usuario,
+            Usuario.nombre,
+            Usuario.apellido,
+            Usuario.correo,
+            Usuario.rol,
+            Usuario.estado,
+
+            func.count(
+                func.distinct(
+                    Muestra.id_muestra
+                )
+            ).label(
+                "muestras_realizadas"
+            ),
+
+            func.max(
+                ResultadoAnalisis.fecha_creacion
+            ).label(
+                "ultimo_analisis"
+            )
+        )
+
+        .outerjoin(
+            Muestra,
+            Muestra.id_usuario
+            == Usuario.id_usuario
+        )
+
+        .outerjoin(
+            ResultadoAnalisis,
+            ResultadoAnalisis.id_muestra
+            == Muestra.id_muestra
+        )
+
         .filter(
             Usuario.rol == "usuario"
         )
+
+        .group_by(
+            Usuario.id_usuario,
+            Usuario.nombre,
+            Usuario.apellido,
+            Usuario.correo,
+            Usuario.rol,
+            Usuario.estado
+        )
+
         .order_by(
             Usuario.id_usuario.asc()
         )
+
         .all()
     )
 
-    respuesta = []
+    return [
+        UsuarioAdminResponse(
 
-    for usuario in usuarios:
+            id_usuario=(
+                usuario.id_usuario
+            ),
 
-        muestras_realizadas = (
-            db.query(
-                func.count(
-                    Muestra.id_muestra
-                )
-            )
-            .filter(
-                Muestra.id_usuario
-                == usuario.id_usuario
-            )
-            .scalar()
-        ) or 0
+            nombre=(
+                usuario.nombre
+            ),
 
-        ultimo_analisis = (
-            db.query(
-                func.max(
-                    ResultadoAnalisis.fecha_creacion
-                )
-            )
-            .join(
-                Muestra,
-                ResultadoAnalisis.id_muestra
-                == Muestra.id_muestra
-            )
-            .filter(
-                Muestra.id_usuario
-                == usuario.id_usuario
-            )
-            .scalar()
-        )
+            apellido=(
+                usuario.apellido
+            ),
 
-        respuesta.append(
-            UsuarioAdminResponse(
+            correo=(
+                usuario.correo
+            ),
 
-                id_usuario=(
-                    usuario.id_usuario
-                ),
+            rol=(
+                usuario.rol
+            ),
 
-                nombre=(
-                    usuario.nombre
-                ),
+            estado=(
+                usuario.estado
+            ),
 
-                apellido=(
-                    usuario.apellido
-                ),
+            muestras_realizadas=(
+                usuario.muestras_realizadas
+                or 0
+            ),
 
-                correo=(
-                    usuario.correo
-                ),
-
-                rol=(
-                    usuario.rol
-                ),
-
-                estado=(
-                    usuario.estado
-                ),
-
-                muestras_realizadas=(
-                    muestras_realizadas
-                ),
-
-                ultimo_analisis=(
-                    ultimo_analisis
-                )
+            ultimo_analisis=(
+                usuario.ultimo_analisis
             )
         )
 
-    return respuesta
+        for usuario in usuarios
+    ]
 
 
 # ==========================================

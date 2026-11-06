@@ -1,14 +1,49 @@
 .admin-layout {
-  display: flex;
   min-height: 100vh;
+
   background: #f6f9fd;
 }
 
+
+/* =========================
+   CONTENIDO PRINCIPAL
+========================= */
+
 .main-content {
-  flex: 1;
+  min-height: 100vh;
   min-width: 0;
+
+  margin-left: 230px;
 
   padding: 32px 40px;
 
+  background: #f6f9fd;
+
   overflow-x: auto;
+}
+
+
+/* =========================
+   RESPONSIVE
+========================= */
+
+@media (max-width: 900px) {
+
+  .main-content {
+    margin-left: 200px;
+
+    padding: 28px 24px;
+  }
+
+}
+
+
+@media (max-width: 650px) {
+
+  .main-content {
+    margin-left: 0;
+
+    padding: 24px 16px;
+  }
+
 }
