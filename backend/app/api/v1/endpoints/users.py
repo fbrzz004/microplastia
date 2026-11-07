@@ -24,8 +24,17 @@ from app.schemas.profile import (
     ChangePasswordRequest,
     UpdateProfileRequest,
 )
+from app.schemas.notification import (
+    NotificationPreferenceData,
+    NotificationPreferenceResponse,
+    NotificationPreferenceUpdate,
+)
 from app.services.auth_service import (
     normalize_email,
+)
+from app.services.notification_service import (
+    get_preference,
+    set_preference,
 )
 
 
@@ -33,6 +42,60 @@ router = APIRouter(
     prefix="/users",
     tags=["Users"],
 )
+
+
+# ==========================================================
+# PREFERENCIAS DE NOTIFICACIONES
+# ==========================================================
+
+@router.get(
+    "/me/preferences",
+    response_model=NotificationPreferenceResponse,
+)
+def get_my_preferences(
+    current_user: Usuario = Depends(
+        get_current_user
+    ),
+    db: Session = Depends(
+        get_db
+    ),
+):
+
+    return NotificationPreferenceResponse(
+        data=NotificationPreferenceData(
+            notificaciones_activas=get_preference(
+                db,
+                current_user.id_usuario,
+            )
+        )
+    )
+
+
+@router.put(
+    "/me/preferences",
+    response_model=NotificationPreferenceResponse,
+)
+def update_my_preferences(
+    data: NotificationPreferenceUpdate,
+    current_user: Usuario = Depends(
+        get_current_user
+    ),
+    db: Session = Depends(
+        get_db
+    ),
+):
+
+    enabled = set_preference(
+        db,
+        current_user.id_usuario,
+        data.notificaciones_activas,
+    )
+
+    return NotificationPreferenceResponse(
+        data=NotificationPreferenceData(
+            notificaciones_activas=enabled
+        )
+    )
 
 
 # ==========================================================

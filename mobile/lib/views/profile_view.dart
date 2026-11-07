@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -14,7 +13,6 @@ class ProfileView extends StatefulWidget {
 
 class _ProfileViewState extends State<ProfileView> {
   late final ProfileViewModel _viewModel;
-  bool _notificaciones = true;
 
   static const azul = Color(0xFF1976E9);
   static const oscuro = Color(0xFF203653);
@@ -206,9 +204,7 @@ class _ProfileViewState extends State<ProfileView> {
                       const SizedBox(height: 12),
                       Center(
                         child: Text(
-                          nombreCompleto.isEmpty
-                              ? 'Mi cuenta'
-                              : nombreCompleto,
+                          nombreCompleto.isEmpty ? 'Mi cuenta' : nombreCompleto,
                           textAlign: TextAlign.center,
                           style: const TextStyle(
                             color: Color(0xFF172747),
@@ -304,11 +300,13 @@ class _ProfileViewState extends State<ProfileView> {
                               ),
                             ),
                             Switch(
-                              value: _notificaciones,
+                              value: _viewModel.notificacionesActivas,
                               activeTrackColor: azul,
-                              onChanged: (value) {
-                                setState(() => _notificaciones = value);
-                              },
+                              onChanged: _viewModel.isSavingNotifications
+                                  ? null
+                                  : (value) {
+                                      _viewModel.setNotifications(value);
+                                    },
                             ),
                           ],
                         ),

@@ -1,111 +1,218 @@
-import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:async';
+import 'dart:convert';
 
-import '../models/analysis_result.dart';
+import 'package:http/http.dart' as http;
+
+import '../core/config/app_config.dart';
+import '../core/network/api_error_mapper.dart';
+import '../core/network/api_exception.dart';
 import '../models/app_notification.dart';
-import 'history_service.dart';
+import 'session_service.dart';
+
+class NotificationResult {
+  const NotificationResult({
+    required this.items,
+    required this.total,
+    required this.unreadCount,
+  });
+
+  final List<AppNotification> items;
+  final int total;
+  final int unreadCount;
+}
 
 class NotificationService {
   NotificationService({
-    HistoryService? historyService,
-  }) : _historyService = historyService ?? HistoryService();
+    http.Client? client,
+  }) : _client = client ?? http.Client();
 
-  static const String _readIdsKey = 'notification_read_ids';
-  static const int _maxNotifications = 20;
+  final http.Client _client;
 
-  final HistoryService _historyService;
-
-  Future<List<AppNotification>> load({
-    int limit = _maxNotifications,
+  Future<NotificationResult> load({
+    int limit = 20,
+    int offset = 0,
   }) async {
-    final analyses = await _historyService.listar(
-      limit: limit,
-      offset: 0,
+    final uri = Uri.parse(
+      AppConfig.notificationsEndpoint,
+    ).replace(
+      queryParameters: {
+        'limit': '$limit',
+        'offset': '$offset',
+      },
     );
 
-    final readIds = await _readIds();
+    final data = await _request(
+      'GET',
+      uri,
+    );
 
-    return build(analyses)
+    final items = (data['items'] as List? ?? const [])
+        .whereType<Map>()
         .map(
-          (item) => item.copyWith(
-            read: readIds.contains(item.id),
+          (item) => AppNotification.fromJson(
+            Map<String, dynamic>.from(item),
           ),
         )
         .toList();
-  }
 
-  Future<void> markAllAsRead(
-    Iterable<AppNotification> items,
-  ) async {
-    final readIds = await _readIds();
-
-    readIds.addAll(
-      items.map((item) => item.id),
+    return NotificationResult(
+      items: items,
+      total: _toInt(data['total']),
+      unreadCount: _toInt(
+        data['unread_count'],
+      ),
     );
-
-    await _saveReadIds(readIds);
   }
 
-  Future<void> markAsRead(
-    AppNotification item,
-  ) async {
-    final readIds = await _readIds();
-
-    readIds.add(item.id);
-
-    await _saveReadIds(readIds);
-  }
-
-  static List<AppNotification> build(
-    List<AnalysisSummary> analyses,
-  ) {
-    final ordered = [...analyses]..sort((a, b) {
-        final dateA = a.createdAt?.millisecondsSinceEpoch ?? 0;
-        final dateB = b.createdAt?.millisecondsSinceEpoch ?? 0;
-
-        return dateB.compareTo(dateA);
-      });
-
-    return ordered
-        .take(_maxNotifications)
-        .map(
-          (analysis) => AppNotification(
-            id: 'analysis-${analysis.id}',
-            title: 'Análisis completado',
-            message: 'Muestra ${analysis.sampleId} · '
-                '${analysis.totalParticles} partículas · '
-                '${analysis.confidencePercent}% de confianza',
-            createdAt: analysis.createdAt,
-            read: false,
-            analysisId: analysis.id,
-          ),
-        )
-        .toList();
-  }
-
-  static int unreadCount(List<AppNotification> items) {
-    return items.where((item) => !item.read).length;
-  }
-
-  Future<Set<String>> _readIds() async {
-    final prefs = await SharedPreferences.getInstance();
-
-    return prefs.getStringList(_readIdsKey)?.toSet() ?? <String>{};
-  }
-
-  Future<void> _saveReadIds(
-    Set<String> ids,
-  ) async {
-    final prefs = await SharedPreferences.getInstance();
-
-    final ordered = ids.toList()..sort();
-
-    await prefs.setStringList(
-      _readIdsKey,
-      ordered,
+  Future<void> markAsRead(int notificationId) async {
+    await _request(
+      'POST',
+      Uri.parse(
+        '${AppConfig.notificationsEndpoint}/$notificationId/read',
+      ),
     );
+  }
+
+  Future<void> markAllAsRead() async {
+    await _request(
+      'POST',
+      Uri.parse(
+        '${AppConfig.notificationsEndpoint}/read-all',
+      ),
+    );
+  }
+
+  Future<Map<String, dynamic>> _request(
+    String method,
+    Uri uri,
+  ) async {
+    final token = await SessionService.getValidToken();
+
+    if (token == null) {
+      throw const ApiException(
+        statusCode: 401,
+        sessionExpired: true,
+        message: 'Tu sesión expiró. '
+            'Inicia sesión nuevamente.',
+      );
+    }
+
+    late final http.Response response;
+
+    try {
+      switch (method) {
+        case 'GET':
+          response = await _client.get(
+            uri,
+            headers: {
+              'Accept': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+          ).timeout(
+            AppConfig.requestTimeout,
+          );
+          break;
+
+        case 'POST':
+          response = await _client.post(
+            uri,
+            headers: {
+              'Accept': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+          ).timeout(
+            AppConfig.requestTimeout,
+          );
+          break;
+
+        default:
+          throw const ApiException(
+            message: 'Operación no disponible.',
+          );
+      }
+    } on TimeoutException {
+      throw const ApiException(
+        message: 'El servidor está tardando '
+            'demasiado. Inténtalo nuevamente.',
+      );
+    } on http.ClientException {
+      throw const ApiException(
+        message: 'No se pudo conectar con '
+            'el servidor.',
+      );
+    }
+
+    final decoded = _decode(response.body);
+
+    if (response.statusCode == 401) {
+      await SessionService.clearToken();
+
+      throw ApiErrorMapper.fromStatusCode(401);
+    }
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw ApiErrorMapper.fromStatusCode(
+        response.statusCode,
+        serverMessage: _extractMessage(decoded),
+      );
+    }
+
+    if (decoded is! Map<String, dynamic>) {
+      throw const ApiException(
+        message: 'El servidor devolvió '
+            'una respuesta no válida.',
+      );
+    }
+
+    final data = decoded['data'];
+
+    if (data is! Map) {
+      throw const ApiException(
+        message: 'No se pudo interpretar '
+            'la respuesta del servidor.',
+      );
+    }
+
+    return Map<String, dynamic>.from(data);
+  }
+
+  dynamic _decode(String body) {
+    if (body.trim().isEmpty) {
+      return null;
+    }
+
+    try {
+      return jsonDecode(body);
+    } on FormatException {
+      return null;
+    }
+  }
+
+  String? _extractMessage(dynamic decoded) {
+    if (decoded is! Map) return null;
+
+    final detail = decoded['detail'];
+
+    if (detail is String && detail.trim().isNotEmpty) {
+      return detail;
+    }
+
+    final message = decoded['message'];
+
+    if (message is String && message.trim().isNotEmpty) {
+      return message;
+    }
+
+    return null;
+  }
+
+  static int _toInt(dynamic value) {
+    if (value is int) return value;
+    if (value is num) return value.round();
+    return int.tryParse(value?.toString() ?? '') ?? 0;
   }
 
   void dispose() {
-    _historyService.dispose();
+    _client.close();
   }
 }

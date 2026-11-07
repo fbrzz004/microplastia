@@ -29,6 +29,11 @@ from app.schemas.analysis import (
     DetectionItem,
 )
 from app.services.history_service import save_analysis
+from app.services.notification_events import notification_events
+from app.services.notification_service import (
+    create_analysis_notification,
+    to_notification_payload,
+)
 from app.services.storage_service import (
     StorageError,
     storage_service,
@@ -383,6 +388,31 @@ async def save_mobile_analysis(
     result.result_id = (
         registro.id_resultado
     )
+
+
+    # ------------------------------------------------------
+    # NOTIFICACIÓN
+    # ------------------------------------------------------
+
+    notification = create_analysis_notification(
+        db,
+        user_id=usuario.id_usuario,
+        result_id=registro.id_resultado,
+        sample_id=result.sample_id,
+        total_particles=result.total_particles,
+        confidence=result.confidence,
+    )
+
+    if notification is not None:
+        notification_events.publish(
+            usuario.id_usuario,
+            {
+                "event": "notification.created",
+                "data": to_notification_payload(
+                    notification
+                ),
+            },
+        )
 
 
     # ------------------------------------------------------

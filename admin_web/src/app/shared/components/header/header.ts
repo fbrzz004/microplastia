@@ -33,7 +33,13 @@ export class Header implements OnInit {
   }
 
   toggleNotifications(): void {
-    this.notificationsOpen.update((open) => !open);
+    const open = !this.notificationsOpen();
+
+    this.notificationsOpen.set(open);
+
+    if (open) {
+      void this.notifications.load();
+    }
   }
 
   closeNotifications(): void {

@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../models/analysis_result.dart';
+import '../services/notification_realtime_service.dart';
 import '../services/notification_service.dart';
 import '../viewmodels/home_viewmodel.dart';
 
@@ -14,7 +17,10 @@ class HomeView extends StatefulWidget {
 class _HomeViewState extends State<HomeView> {
   late final HomeViewModel _viewModel;
   late final NotificationService _notificationService;
+  late final NotificationRealtimeService _realtimeService;
 
+  Timer? _pollTimer;
+  bool _updatingUnread = false;
   int _unreadNotifications = 0;
 
   static const Color azul = Color(0xFF1976E9);
@@ -26,30 +32,49 @@ class _HomeViewState extends State<HomeView> {
     super.initState();
     _viewModel = HomeViewModel();
     _notificationService = NotificationService();
+    _realtimeService = NotificationRealtimeService();
     _viewModel.cargarDatos();
     _actualizarNoLeidas();
+    _realtimeService.connect(
+      onNotification: _actualizarNoLeidas,
+    );
+    _pollTimer = Timer.periodic(
+      const Duration(seconds: 30),
+      (_) => _actualizarNoLeidas(),
+    );
   }
 
   @override
   void dispose() {
+    _pollTimer?.cancel();
+    _realtimeService.dispose();
     _notificationService.dispose();
     _viewModel.dispose();
     super.dispose();
   }
 
-  Future<void> _recargar() => _viewModel.cargarDatos();
+  Future<void> _recargar() async {
+    await _viewModel.cargarDatos();
+    await _actualizarNoLeidas();
+  }
 
   Future<void> _actualizarNoLeidas() async {
+    if (_updatingUnread) return;
+
+    _updatingUnread = true;
+
     try {
-      final items = await _notificationService.load();
+      final result = await _notificationService.load();
 
       if (!mounted) return;
 
       setState(() {
-        _unreadNotifications = NotificationService.unreadCount(items);
+        _unreadNotifications = result.unreadCount;
       });
     } catch (_) {
       // El contador se actualiza en el próximo intento.
+    } finally {
+      _updatingUnread = false;
     }
   }
 

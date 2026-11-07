@@ -111,26 +111,15 @@ bearer_scheme = HTTPBearer(
 )
 
 
-# ==========================================================
-# RESOLVER USUARIO
-# ==========================================================
-
-def _resolve_user(
-    credentials:
-        HTTPAuthorizationCredentials
-        | None,
-
+def _user_from_token(
+    token: str,
     db: Session,
-
 ) -> Usuario | None:
-
-    if credentials is None:
-        return None
 
     try:
 
         payload = jwt.decode(
-            credentials.credentials,
+            token,
             settings.secret_key,
             algorithms=[
                 settings.algorithm
@@ -216,6 +205,39 @@ def _resolve_user(
 
 
     return usuario
+
+
+def get_user_from_token(
+    token: str,
+    db: Session,
+) -> Usuario | None:
+
+    return _user_from_token(
+        token,
+        db,
+    )
+
+
+# ==========================================================
+# RESOLVER USUARIO
+# ==========================================================
+
+def _resolve_user(
+    credentials:
+        HTTPAuthorizationCredentials
+        | None,
+
+    db: Session,
+
+) -> Usuario | None:
+
+    if credentials is None:
+        return None
+
+    return _user_from_token(
+        credentials.credentials,
+        db,
+    )
 
 
 # ==========================================================

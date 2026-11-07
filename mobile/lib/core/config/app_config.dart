@@ -106,6 +106,24 @@ class AppConfig {
       '$apiBaseUrl$apiPrefix/users/me/password';
 
   // ---------------------------------------------------------------------------
+  // NOTIFICACIONES
+  // ---------------------------------------------------------------------------
+
+  static String get notificationsEndpoint =>
+      '$apiBaseUrl$apiPrefix/notifications';
+
+  static String get notificationPreferencesEndpoint =>
+      '$apiBaseUrl$apiPrefix/users/me/preferences';
+
+  static String get notificationsWebSocketEndpoint {
+    final wsBase = apiBaseUrl
+        .replaceFirst('https://', 'wss://')
+        .replaceFirst('http://', 'ws://');
+
+    return '$wsBase$apiPrefix/notifications/ws';
+  }
+
+  // ---------------------------------------------------------------------------
   // MODELOS DE IA
   // ---------------------------------------------------------------------------
 

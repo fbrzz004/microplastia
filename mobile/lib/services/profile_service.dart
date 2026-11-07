@@ -155,6 +155,31 @@ class ProfileService {
     );
   }
 
+  Future<bool> getNotificationsEnabled() async {
+    final response = await _request(
+      'GET',
+      '/users/me/preferences',
+    );
+
+    final data = response['data'];
+
+    if (data is! Map) {
+      return true;
+    }
+
+    return data['notificaciones_activas'] != false;
+  }
+
+  Future<void> updateNotificationsEnabled(bool enabled) async {
+    await _request(
+      'PUT',
+      '/users/me/preferences',
+      body: {
+        'notificaciones_activas': enabled,
+      },
+    );
+  }
+
   dynamic _decode(
     String body,
   ) {

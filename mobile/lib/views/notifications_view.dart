@@ -40,10 +40,10 @@ class _NotificationsViewState extends State<NotificationsView> {
 
     if (!mounted) return;
 
-    final analysisId = item.analysisId;
+    final resultId = item.resultId;
 
-    if (analysisId != null) {
-      context.go('/history/$analysisId');
+    if (resultId != null) {
+      context.go('/history/$resultId');
       return;
     }
 

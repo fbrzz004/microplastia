@@ -13,8 +13,8 @@ class NotificationsViewModel extends ChangeNotifier {
   List<AppNotification> items = [];
   bool isLoading = false;
   String? errorMessage;
-
-  int get unreadCount => NotificationService.unreadCount(items);
+  int unreadCount = 0;
+  int total = 0;
 
   Future<void> load() async {
     isLoading = true;
@@ -22,7 +22,11 @@ class NotificationsViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
-      items = await _service.load();
+      final result = await _service.load();
+
+      items = result.items;
+      unreadCount = result.unreadCount;
+      total = result.total;
     } catch (error) {
       errorMessage = error.toString().replaceFirst('Exception: ', '');
     } finally {
@@ -34,26 +38,43 @@ class NotificationsViewModel extends ChangeNotifier {
   Future<void> markAllAsRead() async {
     if (items.isEmpty) return;
 
-    await _service.markAllAsRead(items);
+    try {
+      await _service.markAllAsRead();
 
-    items = items.map((item) => item.copyWith(read: true)).toList();
+      items = items.map((item) => item.copyWith(read: true)).toList();
 
-    notifyListeners();
+      unreadCount = 0;
+      notifyListeners();
+    } catch (error) {
+      errorMessage = error.toString().replaceFirst('Exception: ', '');
+
+      notifyListeners();
+    }
   }
 
   Future<void> markAsRead(AppNotification item) async {
     if (item.read) return;
 
-    await _service.markAsRead(item);
+    try {
+      await _service.markAsRead(item.id);
 
-    items = items
-        .map(
-          (current) =>
-              current.id == item.id ? current.copyWith(read: true) : current,
-        )
-        .toList();
+      items = items
+          .map(
+            (current) =>
+                current.id == item.id ? current.copyWith(read: true) : current,
+          )
+          .toList();
 
-    notifyListeners();
+      if (unreadCount > 0) {
+        unreadCount--;
+      }
+
+      notifyListeners();
+    } catch (error) {
+      errorMessage = error.toString().replaceFirst('Exception: ', '');
+
+      notifyListeners();
+    }
   }
 
   @override

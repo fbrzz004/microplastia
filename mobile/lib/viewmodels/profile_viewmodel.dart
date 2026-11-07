@@ -25,6 +25,9 @@ class ProfileViewModel extends ChangeNotifier {
   String correo = '';
   String rol = 'usuario';
 
+  bool notificacionesActivas = true;
+  bool isSavingNotifications = false;
+
   Future<void> loadProfile() async {
     isLoading = true;
 
@@ -44,6 +47,12 @@ class ProfileViewModel extends ChangeNotifier {
       correo = profile['correo']?.toString() ?? '';
 
       rol = profile['rol']?.toString() ?? 'usuario';
+
+      try {
+        notificacionesActivas = await _profileService.getNotificationsEnabled();
+      } catch (_) {
+        notificacionesActivas = true;
+      }
     } on ApiException catch (e) {
       errorMessage = e.message;
 
@@ -210,6 +219,38 @@ class ProfileViewModel extends ChangeNotifier {
       return false;
     } finally {
       isChangingPassword = false;
+
+      notifyListeners();
+    }
+  }
+
+  Future<void> setNotifications(bool enabled) async {
+    if (isSavingNotifications) return;
+
+    final previous = notificacionesActivas;
+
+    notificacionesActivas = enabled;
+    isSavingNotifications = true;
+    errorMessage = null;
+    successMessage = null;
+
+    notifyListeners();
+
+    try {
+      await _profileService.updateNotificationsEnabled(enabled);
+
+      successMessage = enabled
+          ? 'Notificaciones activadas.'
+          : 'Notificaciones desactivadas.';
+    } on ApiException catch (e) {
+      notificacionesActivas = previous;
+      errorMessage = e.message;
+      sessionExpired = e.sessionExpired;
+    } catch (_) {
+      notificacionesActivas = previous;
+      errorMessage = 'No se pudo guardar la preferencia.';
+    } finally {
+      isSavingNotifications = false;
 
       notifyListeners();
     }
