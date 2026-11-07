@@ -10,6 +10,7 @@ import '../views/history_detail_view.dart';
 import '../views/history_view.dart';
 import '../views/home_view.dart';
 import '../views/login_view.dart';
+import '../views/notifications_view.dart';
 import '../views/profile_view.dart';
 import '../views/register_view.dart';
 
@@ -81,6 +82,19 @@ GoRouter createRouter() {
           state,
         ) =>
             const RegisterView(),
+      ),
+
+      // ====================================================
+      // NOTIFICACIONES
+      // ====================================================
+
+      GoRoute(
+        path: '/notifications',
+        builder: (
+          context,
+          state,
+        ) =>
+            const NotificationsView(),
       ),
 
       // ====================================================

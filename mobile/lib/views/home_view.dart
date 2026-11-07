@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../models/analysis_result.dart';
+import '../services/notification_service.dart';
 import '../viewmodels/home_viewmodel.dart';
 
 class HomeView extends StatefulWidget {
@@ -12,6 +13,9 @@ class HomeView extends StatefulWidget {
 
 class _HomeViewState extends State<HomeView> {
   late final HomeViewModel _viewModel;
+  late final NotificationService _notificationService;
+
+  int _unreadNotifications = 0;
 
   static const Color azul = Color(0xFF1976E9);
   static const Color oscuro = Color(0xFF203653);
@@ -21,16 +25,41 @@ class _HomeViewState extends State<HomeView> {
   void initState() {
     super.initState();
     _viewModel = HomeViewModel();
+    _notificationService = NotificationService();
     _viewModel.cargarDatos();
+    _actualizarNoLeidas();
   }
 
   @override
   void dispose() {
+    _notificationService.dispose();
     _viewModel.dispose();
     super.dispose();
   }
 
   Future<void> _recargar() => _viewModel.cargarDatos();
+
+  Future<void> _actualizarNoLeidas() async {
+    try {
+      final items = await _notificationService.load();
+
+      if (!mounted) return;
+
+      setState(() {
+        _unreadNotifications = NotificationService.unreadCount(items);
+      });
+    } catch (_) {
+      // El contador se actualiza en el próximo intento.
+    }
+  }
+
+  Future<void> _abrirNotificaciones() async {
+    await context.push('/notifications');
+
+    if (!mounted) return;
+
+    await _actualizarNoLeidas();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -49,19 +78,36 @@ class _HomeViewState extends State<HomeView> {
                 physics: const AlwaysScrollableScrollPhysics(),
                 padding: const EdgeInsets.fromLTRB(17, 20, 17, 30),
                 children: [
-                  const Text(
-                    'Hola, investigador',
-                    style: TextStyle(
-                      color: oscuro,
-                      fontSize: 21,
-                      fontWeight: FontWeight.bold,
-                      height: 1.25,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  const Text(
-                    'Resumen de tus análisis recientes',
-                    style: TextStyle(color: gris, fontSize: 12),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Hola, investigador',
+                              style: TextStyle(
+                                color: oscuro,
+                                fontSize: 21,
+                                fontWeight: FontWeight.bold,
+                                height: 1.25,
+                              ),
+                            ),
+                            SizedBox(height: 4),
+                            Text(
+                              'Resumen de tus análisis recientes',
+                              style: TextStyle(color: gris, fontSize: 12),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      _BotonNotificaciones(
+                        count: _unreadNotifications,
+                        onTap: _abrirNotificaciones,
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 27),
 
@@ -204,6 +250,80 @@ class _HomeViewState extends State<HomeView> {
           ),
         );
       },
+    );
+  }
+}
+
+class _BotonNotificaciones extends StatelessWidget {
+  const _BotonNotificaciones({
+    required this.count,
+    required this.onTap,
+  });
+
+  final int count;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: count > 0 ? 'Notificaciones, $count sin leer' : 'Notificaciones',
+      child: IconButton(
+        onPressed: onTap,
+        tooltip: 'Notificaciones',
+        style: IconButton.styleFrom(
+          backgroundColor: Colors.white,
+          side: const BorderSide(
+            color: Color(0xFFE0E8F3),
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          minimumSize: const Size(42, 42),
+        ),
+        icon: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            const Icon(
+              Icons.notifications_none_rounded,
+              color: Color(0xFF48627F),
+              size: 22,
+            ),
+            if (count > 0)
+              Positioned(
+                top: -7,
+                right: -8,
+                child: Container(
+                  constraints: const BoxConstraints(
+                    minWidth: 18,
+                    minHeight: 18,
+                  ),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 4,
+                  ),
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE32636),
+                    borderRadius: BorderRadius.circular(9),
+                    border: Border.all(
+                      color: Colors.white,
+                      width: 1.5,
+                    ),
+                  ),
+                  child: Text(
+                    count > 9 ? '9+' : '$count',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 9,
+                      fontWeight: FontWeight.bold,
+                      height: 1,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
     );
   }
 }
