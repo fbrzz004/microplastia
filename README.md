@@ -69,9 +69,14 @@ El backend estará disponible normalmente en:
 | GET    | `/api/v1/history`       | Listar los análisis del usuario autenticado.                              |
 | GET    | `/api/v1/results/{id}`  | Obtener el detalle de un análisis guardado.                               |
 | POST   | `/api/v1/reports`       | Generar un reporte PDF con los análisis seleccionados.                    |
+| GET    | `/api/v1/notifications` | Listar las notificaciones del usuario autenticado.                        |
+| POST   | `/api/v1/notifications/{id}/read` | Marcar una notificación como leída.                            |
+| POST   | `/api/v1/notifications/read-all` | Marcar todas las notificaciones como leídas.                     |
+| GET/PUT | `/api/v1/users/me/preferences` | Consultar o actualizar la preferencia de notificaciones.          |
+| WS     | `/api/v1/notifications/ws` | Recibir notificaciones nuevas en tiempo real.                          |
 
-Los endpoints de análisis, historial y reportes requieren el encabezado
-`Authorization: Bearer <token>` obtenido en el inicio de sesión.
+Los endpoints de análisis, historial, reportes y notificaciones requieren el
+encabezado `Authorization: Bearer <token>` obtenido en el inicio de sesión.
 
 Documentación interactiva:
 

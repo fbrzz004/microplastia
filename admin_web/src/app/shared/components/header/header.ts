@@ -47,11 +47,11 @@ export class Header implements OnInit {
   }
 
   markAllAsRead(): void {
-    this.notifications.markAllAsRead();
+    void this.notifications.markAllAsRead();
   }
 
-  openNotification(notification: AdminNotification): void {
-    this.notifications.markAsRead(notification.id);
+  async openNotification(notification: AdminNotification): Promise<void> {
+    await this.notifications.markAsRead(notification.id);
 
     this.closeNotifications();
 

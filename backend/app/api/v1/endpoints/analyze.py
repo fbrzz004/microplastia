@@ -31,7 +31,7 @@ from app.schemas.analysis import (
 from app.services.history_service import save_analysis
 from app.services.notification_events import notification_events
 from app.services.notification_service import (
-    create_analysis_notification,
+    create_analysis_notifications,
     to_notification_payload,
 )
 from app.services.storage_service import (
@@ -394,7 +394,7 @@ async def save_mobile_analysis(
     # NOTIFICACIÓN
     # ------------------------------------------------------
 
-    notification = create_analysis_notification(
+    notifications = create_analysis_notifications(
         db,
         user_id=usuario.id_usuario,
         result_id=registro.id_resultado,
@@ -403,9 +403,9 @@ async def save_mobile_analysis(
         confidence=result.confidence,
     )
 
-    if notification is not None:
+    for notification in notifications:
         notification_events.publish(
-            usuario.id_usuario,
+            notification.id_usuario,
             {
                 "event": "notification.created",
                 "data": to_notification_payload(

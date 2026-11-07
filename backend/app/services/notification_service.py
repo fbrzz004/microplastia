@@ -1,11 +1,12 @@
 from collections.abc import Sequence
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.models.notification import Notificacion
 from app.models.preference import PreferenciaUsuario
+from app.models.user import Usuario
 from app.schemas.notification import NotificationItem
 
 
@@ -66,13 +67,13 @@ def set_preference(
     return bool(preference.notificaciones_activas)
 
 
-def create_analysis_notification(
+def _create_notification(
     db: Session,
     user_id: int,
-    result_id: int,
-    sample_id: str,
-    total_particles: int,
-    confidence: float,
+    tipo: str,
+    titulo: str,
+    mensaje: str,
+    result_id: int | None = None,
 ) -> Notificacion | None:
 
     if not notifications_enabled(db, user_id):
@@ -80,13 +81,9 @@ def create_analysis_notification(
 
     notification = Notificacion(
         id_usuario=user_id,
-        tipo="analysis",
-        titulo="Análisis completado",
-        mensaje=(
-            f"Muestra {sample_id} · "
-            f"{total_particles} partículas · "
-            f"{round(confidence * 100)}% de confianza"
-        ),
+        tipo=tipo,
+        titulo=titulo,
+        mensaje=mensaje,
         id_resultado=result_id,
         leida=False,
     )
@@ -101,6 +98,111 @@ def create_analysis_notification(
         return None
 
     return notification
+
+
+def create_analysis_notifications(
+    db: Session,
+    user_id: int,
+    result_id: int,
+    sample_id: str,
+    total_particles: int,
+    confidence: float,
+) -> list[Notificacion]:
+
+    admin_ids = [
+        row[0]
+        for row in (
+            db.query(Usuario.id_usuario)
+            .filter(
+                Usuario.rol == "administrador",
+                Usuario.estado.is_(True),
+            )
+            .all()
+        )
+    ]
+
+    recipients = list(
+        dict.fromkeys([user_id, *admin_ids])
+    )
+
+    message = (
+        f"Muestra {sample_id} · "
+        f"{total_particles} partículas · "
+        f"{round(confidence * 100)}% de confianza"
+    )
+
+    notifications: list[Notificacion] = []
+
+    for recipient_id in recipients:
+        notification = _create_notification(
+            db,
+            user_id=recipient_id,
+            tipo="analysis",
+            titulo="Análisis completado",
+            mensaje=message,
+            result_id=result_id,
+        )
+
+        if notification is not None:
+            notifications.append(notification)
+
+    return notifications
+
+
+def create_system_notifications_for_admins(
+    db: Session,
+    tipo: str,
+    titulo: str,
+    mensaje: str,
+) -> list[Notificacion]:
+
+    since = (
+        datetime.now(timezone.utc)
+        - timedelta(hours=24)
+    )
+
+    admin_ids = [
+        row[0]
+        for row in (
+            db.query(Usuario.id_usuario)
+            .filter(
+                Usuario.rol == "administrador",
+                Usuario.estado.is_(True),
+            )
+            .all()
+        )
+    ]
+
+    notifications: list[Notificacion] = []
+
+    for admin_id in admin_ids:
+        existing = (
+            db.query(Notificacion)
+            .filter(
+                Notificacion.id_usuario == admin_id,
+                Notificacion.tipo == tipo,
+                Notificacion.titulo == titulo,
+                Notificacion.mensaje == mensaje,
+                Notificacion.fecha_creacion >= since,
+            )
+            .first()
+        )
+
+        if existing is not None:
+            continue
+
+        notification = _create_notification(
+            db,
+            user_id=admin_id,
+            tipo=tipo,
+            titulo=titulo,
+            mensaje=mensaje,
+        )
+
+        if notification is not None:
+            notifications.append(notification)
+
+    return notifications
 
 
 def list_notifications(

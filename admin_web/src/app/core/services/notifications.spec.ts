@@ -1,73 +1,74 @@
 import { TestBed } from '@angular/core/testing';
 import { of } from 'rxjs';
 
-import { Admin, DashboardAdmin, MuestraAdmin } from './admin';
+import { Admin, AdminNotificationItem } from './admin';
 import { NotificationsService } from './notifications';
 
-const dashboard: DashboardAdmin = {
-  muestras_analizadas: 3,
-  particulas_detectadas: 42,
-  usuarios_registrados: 2,
-  modelo_activo: 'best.tflite',
-  modelo_operativo: true,
-  resolucion_inferencia: 640,
-  umbral_confianza: 0.25,
-  numero_clases: 4,
-  tiempo_promedio_inferencia_ms: 120,
-  ultima_inferencia_ms: 110,
-  distribucion: {
-    fibra: 1,
-    fragmento: 1,
-    gránulo: 1,
-    película: 0,
-  },
-  analisis_con_modelo: 3,
-  uso_downloaded: 3,
-  uso_fallback: 0,
-  porcentaje_downloaded: 100,
-  porcentaje_fallback: 0,
-  alerta_fallback: false,
-};
-
-const muestras: MuestraAdmin[] = [
+const notifications: AdminNotificationItem[] = [
   {
-    id_muestra: 1,
-    codigo: 'MUESTRA-1',
-    usuario: 'Ana',
-    correo: 'ana@example.com',
-    fecha: '2026-11-05T10:00:00Z',
-    total_particulas: 10,
-    confianza_promedio: 0.9,
-    estado: 'analizada',
-    modelo_nombre: 'best.tflite',
-    modelo_version: '1.0',
-    modelo_origen: 'descargado',
+    id: 2,
+    type: 'analysis',
+    title: 'Análisis completado',
+    message: 'MUESTRA-2 · 20 partículas · Luis',
+    result_id: 10,
+    is_read: false,
+    created_at: '2026-11-06T10:00:00Z',
   },
   {
-    id_muestra: 2,
-    codigo: 'MUESTRA-2',
-    usuario: 'Luis',
-    correo: 'luis@example.com',
-    fecha: '2026-11-06T10:00:00Z',
-    total_particulas: 20,
-    confianza_promedio: 0.8,
-    estado: 'analizada',
-    modelo_nombre: 'best.tflite',
-    modelo_version: '1.0',
-    modelo_origen: 'descargado',
+    id: 1,
+    type: 'model',
+    title: 'Uso elevado del modelo local',
+    message: '65% de los análisis usó el modelo local.',
+    result_id: null,
+    is_read: true,
+    created_at: '2026-11-05T10:00:00Z',
   },
 ];
 
 class FakeAdmin {
-  dashboard: DashboardAdmin = dashboard;
-  muestras: MuestraAdmin[] = muestras;
+  items: AdminNotificationItem[] = notifications.map((item) => ({ ...item }));
 
-  obtenerDashboard() {
-    return of(this.dashboard);
+  readCalls: number[] = [];
+
+  readAllCalls = 0;
+
+  obtenerNotificaciones() {
+    return of({
+      success: true,
+      data: {
+        items: this.items,
+        total: this.items.length,
+        unread_count: this.items.filter((item) => !item.is_read).length,
+        limit: 20,
+        offset: 0,
+      },
+    });
   }
 
-  obtenerMuestras() {
-    return of(this.muestras);
+  marcarNotificacionLeida(id: number) {
+    this.readCalls.push(id);
+
+    const item = this.items.find((notification) => notification.id === id);
+
+    if (item) {
+      item.is_read = true;
+    }
+
+    return of({
+      success: true,
+      data: item,
+    });
+  }
+
+  marcarTodasNotificacionesLeidas() {
+    this.readAllCalls++;
+
+    this.items = this.items.map((item) => ({
+      ...item,
+      is_read: true,
+    }));
+
+    return of(undefined);
   }
 }
 
@@ -76,7 +77,6 @@ describe('NotificationsService', () => {
   let admin: FakeAdmin;
 
   beforeEach(() => {
-    localStorage.clear();
     admin = new FakeAdmin();
 
     TestBed.configureTestingModule({
@@ -86,49 +86,39 @@ describe('NotificationsService', () => {
     service = TestBed.inject(NotificationsService);
   });
 
-  it('crea una notificación por análisis, de más reciente a más antiguo', async () => {
+  it('carga las notificaciones desde el servidor', async () => {
     await service.load();
 
     expect(service.items().length).toBe(2);
-    expect(service.items()[0].message).toContain('MUESTRA-2');
-    expect(service.items()[1].message).toContain('MUESTRA-1');
-    expect(service.unreadCount()).toBe(2);
+    expect(service.items()[0].title).toBe('Análisis completado');
+    expect(service.items()[0].targetPath).toBe('/muestras');
+    expect(service.items()[0].read).toBe(false);
+    expect(service.unreadCount()).toBe(1);
   });
 
-  it('agrega una notificación cuando el modelo no está operativo', async () => {
-    admin.dashboard = {
-      ...dashboard,
-      modelo_operativo: false,
-    };
-
+  it('asigna dashboard como destino de una alerta de modelo', async () => {
     await service.load();
 
-    expect(service.items().some((item) => item.kind === 'model')).toBe(true);
+    expect(service.items()[1].kind).toBe('model');
+    expect(service.items()[1].targetPath).toBe('/dashboard');
   });
 
-  it('avisa cuando el uso del modelo local es elevado', async () => {
-    admin.dashboard = {
-      ...dashboard,
-      alerta_fallback: true,
-      porcentaje_fallback: 65,
-    };
-
+  it('marca una notificación como leída en el servidor', async () => {
     await service.load();
 
-    const notification = service.items().find((item) => item.id === 'model-fallback');
+    await service.markAsRead(2);
 
-    expect(notification).toBeTruthy();
-    expect(notification?.message).toContain('65%');
-  });
-
-  it('marca todas las notificaciones como leídas y las conserva así', async () => {
-    await service.load();
-    service.markAllAsRead();
-
+    expect(admin.readCalls).toEqual([2]);
     expect(service.unreadCount()).toBe(0);
+    expect(service.items()[0].read).toBe(true);
+  });
 
+  it('marca todas las notificaciones como leídas en el servidor', async () => {
     await service.load();
 
+    await service.markAllAsRead();
+
+    expect(admin.readAllCalls).toBe(1);
     expect(service.unreadCount()).toBe(0);
   });
 });

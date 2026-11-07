@@ -1,13 +1,13 @@
 import { computed, Injectable, signal } from '@angular/core';
 
-import { catchError, firstValueFrom, of } from 'rxjs';
+import { firstValueFrom } from 'rxjs';
 
-import { Admin, DashboardAdmin, MuestraAdmin } from './admin';
+import { Admin, AdminNotificationItem } from './admin';
 
 export type AdminNotificationKind = 'analysis' | 'model';
 
 export interface AdminNotification {
-  id: string;
+  id: number;
 
   title: string;
 
@@ -21,10 +21,6 @@ export interface AdminNotification {
 
   targetPath: string;
 }
-
-const READ_STORAGE_KEY = 'microplastia.admin.notifications.read';
-
-const MAX_ANALYSIS_NOTIFICATIONS = 8;
 
 @Injectable({
   providedIn: 'root',
@@ -46,24 +42,9 @@ export class NotificationsService {
     this.error.set(null);
 
     try {
-      const [dashboard, muestras] = await Promise.all([
-        firstValueFrom(this.admin.obtenerDashboard().pipe(catchError(() => of(null)))),
+      const response = await firstValueFrom(this.admin.obtenerNotificaciones());
 
-        firstValueFrom(
-          this.admin.obtenerMuestras().pipe(catchError(() => of([] as MuestraAdmin[]))),
-        ),
-      ]);
-
-      const readIds = this.readIds();
-
-      const notifications = this.buildNotifications(dashboard, muestras);
-
-      this.items.set(
-        notifications.map((item) => ({
-          ...item,
-          read: readIds.has(item.id),
-        })),
-      );
+      this.items.set(response.data.items.map((item) => this.toNotification(item)));
     } catch {
       this.error.set('No se pudieron cargar las notificaciones.');
     } finally {
@@ -71,114 +52,55 @@ export class NotificationsService {
     }
   }
 
-  markAllAsRead(): void {
-    this.items.update((items) =>
-      items.map((item) => ({
-        ...item,
-        read: true,
-      })),
-    );
+  async markAllAsRead(): Promise<void> {
+    if (this.items().length === 0) return;
 
-    this.persistReadIds(this.items().map((item) => item.id));
+    try {
+      await firstValueFrom(this.admin.marcarTodasNotificacionesLeidas());
+
+      this.items.update((items) =>
+        items.map((item) => ({
+          ...item,
+          read: true,
+        })),
+      );
+    } catch {
+      this.error.set('No se pudieron marcar las notificaciones.');
+    }
   }
 
-  markAsRead(id: string): void {
-    this.items.update((items) =>
-      items.map((item) => (item.id === id ? { ...item, read: true } : item)),
-    );
+  async markAsRead(id: number): Promise<void> {
+    const notification = this.items().find((item) => item.id === id);
 
-    this.persistReadIds(
-      this.items()
-        .filter((item) => item.read)
-        .map((item) => item.id),
-    );
+    if (!notification || notification.read) return;
+
+    try {
+      await firstValueFrom(this.admin.marcarNotificacionLeida(id));
+
+      this.items.update((items) =>
+        items.map((item) => (item.id === id ? { ...item, read: true } : item)),
+      );
+    } catch {
+      this.error.set('No se pudo marcar la notificación.');
+    }
   }
 
-  buildNotifications(
-    dashboard: DashboardAdmin | null,
-    muestras: MuestraAdmin[],
-  ): AdminNotification[] {
-    const notifications: AdminNotification[] = [];
+  private toNotification(item: AdminNotificationItem): AdminNotification {
+    return {
+      id: item.id,
 
-    if (dashboard && !dashboard.modelo_operativo) {
-      notifications.push({
-        id: 'model-unavailable',
+      title: item.title,
 
-        title: 'Modelo de IA no disponible',
+      message: item.message,
 
-        message:
-          `El modelo ${dashboard.modelo_activo} ` +
-          'no está operativo. Revisa el estado del servicio.',
+      kind: item.type === 'model' ? 'model' : 'analysis',
 
-        kind: 'model',
+      createdAt: this.parseDate(item.created_at),
 
-        createdAt: new Date(),
+      read: item.is_read,
 
-        read: false,
-
-        targetPath: '/dashboard',
-      });
-    }
-
-    if (dashboard?.alerta_fallback) {
-      notifications.push({
-        id: 'model-fallback',
-
-        title: 'Uso elevado del modelo local',
-
-        message:
-          `${dashboard.porcentaje_fallback}% de los ` +
-          'análisis usó el modelo local. Revisa la ' +
-          'sincronización del modelo TFLite.',
-
-        kind: 'model',
-
-        createdAt: new Date(),
-
-        read: false,
-
-        targetPath: '/dashboard',
-      });
-    }
-
-    const recientes = [...muestras]
-      .sort((a, b) => {
-        const fechaA = this.parseDate(a.fecha)?.getTime() ?? 0;
-
-        const fechaB = this.parseDate(b.fecha)?.getTime() ?? 0;
-
-        return fechaB - fechaA;
-      })
-      .slice(0, MAX_ANALYSIS_NOTIFICATIONS);
-
-    for (const muestra of recientes) {
-      notifications.push({
-        id: `analysis-${muestra.id_muestra}`,
-
-        title: 'Análisis completado',
-
-        message:
-          `${muestra.codigo} · ` +
-          `${muestra.total_particulas} partículas · ` +
-          `${muestra.usuario}`,
-
-        kind: 'analysis',
-
-        createdAt: this.parseDate(muestra.fecha),
-
-        read: false,
-
-        targetPath: '/muestras',
-      });
-    }
-
-    return notifications.sort((a, b) => {
-      const fechaA = a.createdAt?.getTime() ?? 0;
-
-      const fechaB = b.createdAt?.getTime() ?? 0;
-
-      return fechaB - fechaA;
-    });
+      targetPath: item.type === 'model' ? '/dashboard' : '/muestras',
+    };
   }
 
   private parseDate(value: string | null | undefined): Date | null {
@@ -187,37 +109,5 @@ export class NotificationsService {
     const date = new Date(value);
 
     return Number.isNaN(date.getTime()) ? null : date;
-  }
-
-  private readIds(): Set<string> {
-    if (typeof localStorage === 'undefined') {
-      return new Set();
-    }
-
-    try {
-      const raw = localStorage.getItem(READ_STORAGE_KEY);
-
-      if (!raw) return new Set();
-
-      const parsed: unknown = JSON.parse(raw);
-
-      return Array.isArray(parsed)
-        ? new Set(parsed.filter((id): id is string => typeof id === 'string'))
-        : new Set();
-    } catch {
-      return new Set();
-    }
-  }
-
-  private persistReadIds(ids: string[]): void {
-    if (typeof localStorage === 'undefined') {
-      return;
-    }
-
-    try {
-      localStorage.setItem(READ_STORAGE_KEY, JSON.stringify([...new Set(ids)]));
-    } catch {
-      // El almacenamiento local puede no estar disponible.
-    }
   }
 }

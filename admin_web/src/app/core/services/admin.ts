@@ -104,6 +104,54 @@ export interface DashboardAdmin {
 }
 
 
+export interface AdminNotificationItem {
+
+  id: number;
+
+  type: string;
+
+  title: string;
+
+  message: string;
+
+  result_id: number | null;
+
+  is_read: boolean;
+
+  created_at: string | null;
+}
+
+
+export interface AdminNotificationListData {
+
+  items: AdminNotificationItem[];
+
+  total: number;
+
+  unread_count: number;
+
+  limit: number;
+
+  offset: number;
+}
+
+
+export interface AdminNotificationListResponse {
+
+  success: boolean;
+
+  data: AdminNotificationListData;
+}
+
+
+export interface AdminNotificationReadResponse {
+
+  success: boolean;
+
+  data: AdminNotificationItem;
+}
+
+
 @Injectable({
   providedIn: 'root'
 })
@@ -141,6 +189,42 @@ export class Admin {
 
     return this.http.get<MuestraAdmin[]>(
       `${this.apiUrl}/muestras`
+    );
+  }
+
+
+  obtenerNotificaciones():
+    Observable<AdminNotificationListResponse> {
+
+    return this.http.get<AdminNotificationListResponse>(
+      `${API_BASE_URL}/notifications`,
+      {
+        params: {
+          limit: 20,
+          offset: 0
+        }
+      }
+    );
+  }
+
+
+  marcarNotificacionLeida(
+    notificationId: number
+  ): Observable<AdminNotificationReadResponse> {
+
+    return this.http.post<AdminNotificationReadResponse>(
+      `${API_BASE_URL}/notifications/${notificationId}/read`,
+      {}
+    );
+  }
+
+
+  marcarTodasNotificacionesLeidas():
+    Observable<void> {
+
+    return this.http.post<void>(
+      `${API_BASE_URL}/notifications/read-all`,
+      {}
     );
   }
 }

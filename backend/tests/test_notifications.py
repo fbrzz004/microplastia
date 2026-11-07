@@ -1,5 +1,26 @@
 import json
 
+from app.db.session import SessionLocal
+from app.models.user import Usuario
+from app.services.notification_service import (
+    create_system_notifications_for_admins,
+)
+
+
+def _make_admin(email: str) -> None:
+    with SessionLocal() as db:
+        user = (
+            db.query(Usuario)
+            .filter(Usuario.correo == email)
+            .first()
+        )
+
+        assert user is not None
+
+        user.rol = "administrador"
+        db.commit()
+
+
 
 def _payload(sample_id: str = "NOTIF-SAMPLE-01") -> dict:
     return {
@@ -185,3 +206,89 @@ def test_websocket_receives_new_notification(
         assert event["event"] == "notification.created"
         assert event["data"]["type"] == "analysis"
         assert event["data"]["result_id"] is not None
+
+
+def test_admin_receives_analysis_notification(
+    client,
+    usuario_autenticado,
+):
+    _make_admin(
+        usuario_autenticado["correo"]
+    )
+
+    _create_analysis(
+        client,
+        usuario_autenticado["headers"],
+        "NOTIF-ADMIN",
+    )
+
+    response = client.get(
+        "/api/v1/notifications",
+        headers=usuario_autenticado["headers"],
+    )
+
+    assert response.status_code == 200, response.text
+
+    data = response.json()["data"]
+
+    assert data["total"] >= 1
+    assert any(
+        item["type"] == "analysis"
+        for item in data["items"]
+    )
+
+
+def test_admin_can_mark_notification_as_read(
+    client,
+    usuario_autenticado,
+):
+    _make_admin(
+        usuario_autenticado["correo"]
+    )
+
+    _create_analysis(
+        client,
+        usuario_autenticado["headers"],
+        "NOTIF-ADMIN-READ",
+    )
+
+    notifications = client.get(
+        "/api/v1/notifications",
+        headers=usuario_autenticado["headers"],
+    ).json()["data"]["items"]
+
+    notification_id = notifications[0]["id"]
+
+    response = client.post(
+        f"/api/v1/notifications/{notification_id}/read",
+        headers=usuario_autenticado["headers"],
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["data"]["is_read"] is True
+
+
+def test_system_alert_is_deduplicated(
+    usuario_autenticado,
+):
+    _make_admin(
+        usuario_autenticado["correo"]
+    )
+
+    with SessionLocal() as db:
+        first = create_system_notifications_for_admins(
+            db,
+            tipo="model",
+            titulo="Modelo de IA no disponible",
+            mensaje="Prueba de alerta de modelo.",
+        )
+
+        second = create_system_notifications_for_admins(
+            db,
+            tipo="model",
+            titulo="Modelo de IA no disponible",
+            mensaje="Prueba de alerta de modelo.",
+        )
+
+    assert len(first) >= 1
+    assert len(second) == 0

@@ -15,6 +15,9 @@ from app.schemas.admin import (
     MuestraAdminResponse,
     DashboardAdminResponse,
 )
+from app.services.notification_service import (
+    create_system_notifications_for_admins,
+)
 
 
 router = APIRouter(
@@ -330,6 +333,35 @@ def obtener_dashboard(
         porcentaje_fallback > 20
         and fallback_version_antigua
     )
+
+
+    # --------------------------------------
+    # NOTIFICACIONES DE SISTEMA
+    # --------------------------------------
+
+    if not modelo_operativo:
+        create_system_notifications_for_admins(
+            db,
+            tipo="model",
+            titulo="Modelo de IA no disponible",
+            mensaje=(
+                f"El modelo {modelo_activo} "
+                "no está operativo. Revisa el estado "
+                "del servicio."
+            ),
+        )
+
+    if alerta_fallback:
+        create_system_notifications_for_admins(
+            db,
+            tipo="model",
+            titulo="Uso elevado del modelo local",
+            mensaje=(
+                f"{porcentaje_fallback}% de los análisis "
+                "usó el modelo local. Revisa la "
+                "sincronización del modelo TFLite."
+            ),
+        )
 
 
     # --------------------------------------
