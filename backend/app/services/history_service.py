@@ -1,6 +1,7 @@
 from datetime import datetime
 from typing import Optional, Sequence
 
+from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
 from app.models.result import ResultadoAnalisis
@@ -12,46 +13,58 @@ from app.schemas.history import HistoryDetail, HistoryItem
 def save_analysis(
     db: Session,
     result: AnalysisData,
-    user_id: Optional[int],
+    user_id: int,
+    client_uuid: Optional[str] = None,
+    is_offline_sync: bool = False,
 ) -> ResultadoAnalisis:
 
-    muestra = Muestra(
-        id_usuario=user_id,
+    if client_uuid:
+        existente = get_existing_analysis(
+            db=db,
+            user_id=user_id,
+            client_uuid=client_uuid,
+        )
 
-        # Usaremos descripción para conservar
-        # el identificador generado de la muestra
-        descripcion=result.sample_id,
+        if existente:
+            return existente
 
-        estado="Analizada",
+    try:
+        muestra = Muestra(
+            id_usuario=user_id,
+            descripcion=result.sample_id,
+            estado="Analizada",
+            imagen_url=None,
+            client_uuid=client_uuid,
+        )
 
-        # Actualmente no se almacena físicamente
-        # la imagen original en una URL.
-        imagen_url=None,
-    )
+        db.add(muestra)
+        db.flush()
 
-    db.add(muestra)
-    db.flush()
+        registro = ResultadoAnalisis(
+            id_muestra=muestra.id_muestra,
+            total_particulas=result.total_particles,
+            confianza_promedio=result.confidence,
+            desglose=dict(result.breakdown),
+            detecciones=[
+                d.model_dump()
+                for d in result.detections
+            ],
+            tiempo_procesamiento_ms=result.processing_time_ms,
+            imagen_anotada_url=result.annotated_image_url,
+            fecha_sincronizacion=(
+                func.now() if is_offline_sync else None
+            ),
+        )
 
-    registro = ResultadoAnalisis(
-        id_muestra=muestra.id_muestra,
-        total_particulas=result.total_particles,
-        confianza_promedio=result.confidence,
-        desglose=dict(result.breakdown),
-        detecciones=[
-            d.model_dump()
-            for d in result.detections
-        ],
-        tiempo_procesamiento_ms=result.processing_time_ms,
-        imagen_anotada_url=result.annotated_image_url,
-    )
+        db.add(registro)
+        db.commit()
+        db.refresh(registro)
 
-    db.add(registro)
+        return registro
 
-    db.commit()
-
-    db.refresh(registro)
-
-    return registro
+    except Exception:
+        db.rollback()
+        raise
 
 
 def list_results(
@@ -166,4 +179,47 @@ def to_history_detail(
         processing_time_ms=(
             registro.tiempo_procesamiento_ms
         ),
+    )
+
+def get_existing_analysis(
+    db: Session,
+    user_id: int,
+    client_uuid: str,
+) -> Optional[ResultadoAnalisis]:
+
+    return (
+        db.query(ResultadoAnalisis)
+        .join(ResultadoAnalisis.muestra)
+        .options(joinedload(ResultadoAnalisis.muestra))
+        .filter(
+            Muestra.id_usuario == user_id,
+            Muestra.client_uuid == client_uuid,
+        )
+        .first()
+    )
+
+def to_analysis_data(
+    registro: ResultadoAnalisis
+) -> AnalysisData:
+
+    muestra = registro.muestra
+
+    detecciones = [
+        DetectionItem.model_validate(d)
+        for d in (registro.detecciones or [])
+    ]
+
+    return AnalysisData(
+        result_id=registro.id_resultado,
+        sample_id=(
+            muestra.descripcion
+            if muestra and muestra.descripcion
+            else f"MUESTRA-{muestra.id_muestra}"
+        ),
+        total_particles=registro.total_particulas,
+        confidence=registro.confianza_promedio,
+        breakdown=registro.desglose or {},
+        detections=detecciones,
+        processing_time_ms=registro.tiempo_procesamiento_ms,
+        annotated_image_url=registro.imagen_anotada_url,
     )

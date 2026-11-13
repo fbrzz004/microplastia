@@ -36,5 +36,23 @@ class ResultadoAnalisis(Base):
         server_default=func.now(),
         nullable=False,
     )
+    modelo_nombre = Column(
+        String(255),
+        nullable=True
+    )
 
+    modelo_version = Column(
+        String(100),
+        nullable=True
+    )
+
+    modelo_origen = Column(
+        String(50),
+        nullable=True
+    )
+
+    fecha_sincronizacion = Column(
+        DateTime(timezone=True),
+        nullable=True
+    )
     muestra = relationship("Muestra", back_populates="resultados")

@@ -3,7 +3,7 @@ from typing import Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
-from app.schemas.analysis import DetectionItem
+from app.schemas.analysis import DetectionItem, AnalysisData, AnalysisResponse
 
 
 class HistoryItem(BaseModel):
