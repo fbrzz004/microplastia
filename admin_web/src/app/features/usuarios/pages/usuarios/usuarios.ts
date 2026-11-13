@@ -9,6 +9,10 @@ import {
 } from '@angular/common';
 
 import {
+  FormsModule
+} from '@angular/forms';
+
+import {
   HttpErrorResponse
 } from '@angular/common/http';
 
@@ -28,7 +32,8 @@ import {
   standalone: true,
 
   imports: [
-    CommonModule
+    CommonModule,
+    FormsModule
   ],
 
   templateUrl:
@@ -41,6 +46,10 @@ export class Usuarios implements OnInit {
 
   usuarios:
     UsuarioAdmin[] = [];
+
+  busqueda = '';
+
+  estadoFiltro = '';
 
   cargando = true;
 
@@ -60,6 +69,93 @@ export class Usuarios implements OnInit {
   }
 
 
+ get usuariosFiltrados():
+  UsuarioAdmin[] {
+
+  const terminoOriginal =
+    this.busqueda.trim();
+
+  const termino =
+    this.normalizarTexto(
+      terminoOriginal
+    );
+
+  const coincidenciaId =
+    terminoOriginal.match(
+      /^(?:id\s*)?#?\s*(\d+)$/i
+    );
+
+  const idBuscado =
+    coincidenciaId
+      ? Number(
+          coincidenciaId[1]
+        )
+      : null;
+
+
+  return this.usuarios.filter(
+    usuario => {
+
+      if (
+        idBuscado !== null
+      ) {
+
+        const coincideEstado =
+          !this.estadoFiltro
+          || (
+            this.estadoFiltro === 'Activo'
+            && usuario.estado
+          )
+          || (
+            this.estadoFiltro === 'Inactivo'
+            && !usuario.estado
+          );
+
+        return (
+          usuario.id_usuario
+          === idBuscado
+        )
+        && coincideEstado;
+      }
+
+
+      const nombreCompleto =
+        `${usuario.nombre} `
+        + `${usuario.apellido ?? ''}`;
+
+      const coincideBusqueda =
+        !termino
+        || this.normalizarTexto(
+          nombreCompleto
+        ).includes(
+          termino
+        )
+        || this.normalizarTexto(
+          usuario.correo
+        ).includes(
+          termino
+        );
+
+
+      const coincideEstado =
+        !this.estadoFiltro
+        || (
+          this.estadoFiltro === 'Activo'
+          && usuario.estado
+        )
+        || (
+          this.estadoFiltro === 'Inactivo'
+          && !usuario.estado
+        );
+
+
+      return (
+        coincideBusqueda
+        && coincideEstado
+      );
+    }
+  );
+}
   cargarUsuarios(): void {
 
     this.cargando = true;
@@ -107,6 +203,29 @@ export class Usuarios implements OnInit {
         }
 
       });
+  }
+
+
+  limpiarFiltros(): void {
+
+    this.busqueda = '';
+
+    this.estadoFiltro = '';
+  }
+
+
+  private normalizarTexto(
+    valor: string
+  ): string {
+
+    return valor
+      .normalize('NFD')
+      .replace(
+        /[\u0300-\u036f]/g,
+        ''
+      )
+      .trim()
+      .toLowerCase();
   }
 
 

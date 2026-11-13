@@ -360,3 +360,84 @@ tbody tr:hover {
   color: #98a2b3;
   font-size: 11px;
 }
+
+/* =========================
+   FILTROS
+========================= */
+
+.status-filter {
+  min-width: 170px;
+  height: 42px;
+
+  padding: 0 14px;
+
+  background: #ffffff;
+  color: #344054;
+
+  border: 1px solid #dfe6ef;
+  border-radius: 11px;
+
+  outline: none;
+
+  font-size: 12px;
+
+  cursor: pointer;
+}
+
+.status-filter:focus {
+  border-color: #1871e4;
+
+  box-shadow: 0 0 0 3px rgba(24, 113, 228, 0.08);
+}
+
+.clear-filter-button {
+  height: 42px;
+
+  padding: 0 16px;
+
+  background: #ffffff;
+  color: #475467;
+
+  border: 1px solid #dfe6ef;
+  border-radius: 11px;
+
+  font-size: 11px;
+  font-weight: 600;
+
+  cursor: pointer;
+
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.clear-filter-button:hover {
+  background: #f8fafc;
+  border-color: #cfd8e3;
+}
+
+.filter-summary {
+  padding: 10px 22px;
+
+  background: #fbfcfe;
+  color: #667085;
+
+  border-bottom: 1px solid #edf1f5;
+
+  font-size: 11px;
+}
+
+@media (max-width: 900px) {
+
+  .toolbar {
+    gap: 12px;
+    flex-direction: column;
+  }
+
+  .status-filter,
+  .clear-filter-button {
+    width: 100%;
+  }
+
+}
+

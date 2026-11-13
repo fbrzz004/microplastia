@@ -39,6 +39,8 @@ export interface MuestraAdmin {
 
   id_muestra: number;
 
+  id_resultado: number | null;
+
   codigo: string;
 
   usuario: string;
@@ -152,6 +154,21 @@ export interface AdminNotificationReadResponse {
 }
 
 
+export interface AdminReportResponse {
+
+  success: boolean;
+
+  message: string;
+
+  data: {
+    filename: string;
+    report_url: string;
+    total_analyses: number;
+    generated_at: string;
+  };
+}
+
+
 @Injectable({
   providedIn: 'root'
 })
@@ -189,6 +206,19 @@ export class Admin {
 
     return this.http.get<MuestraAdmin[]>(
       `${this.apiUrl}/muestras`
+    );
+  }
+
+
+  generarReporte(
+    resultIds: number[]
+  ): Observable<AdminReportResponse> {
+
+    return this.http.post<AdminReportResponse>(
+      `${this.apiUrl}/reporte`,
+      {
+        result_ids: resultIds
+      }
     );
   }
 

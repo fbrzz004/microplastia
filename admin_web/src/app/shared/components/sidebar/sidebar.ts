@@ -31,16 +31,32 @@ import {
 })
 export class Sidebar {
 
+  mostrarConfirmacionSalida = false;
+
+
   constructor(
     private router: Router,
     private auth: Auth
   ) {}
 
 
-  cerrarSesion(): void {
+  solicitarCerrarSesion(): void {
+
+    this.mostrarConfirmacionSalida = true;
+  }
+
+
+  cancelarCerrarSesion(): void {
+
+    this.mostrarConfirmacionSalida = false;
+  }
+
+
+  confirmarCerrarSesion(): void {
+
+    this.mostrarConfirmacionSalida = false;
 
     this.auth.logout();
-
 
     this.router.navigate(
       ['/login']
