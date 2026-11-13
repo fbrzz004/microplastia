@@ -1,6 +1,7 @@
 from datetime import datetime
 from typing import Optional, Sequence
 
+from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
 from app.models.result import ResultadoAnalisis
@@ -13,72 +14,59 @@ def save_analysis(
     db: Session,
     result: AnalysisData,
     user_id: Optional[int],
+    client_uuid: Optional[str] = None,
+    is_offline_sync: bool = False,
 ) -> ResultadoAnalisis:
 
-    muestra = Muestra(
-        id_usuario=user_id,
-        descripcion=result.sample_id,
-        estado="Analizada",
-        imagen_url=(
-            result.original_image_url
-        ),
-    )
+    if client_uuid and user_id is not None:
+        existente = get_existing_analysis(
+            db=db,
+            user_id=user_id,
+            client_uuid=client_uuid,
+        )
+        if existente:
+            return existente
 
-    db.add(muestra)
+    try:
+        muestra = Muestra(
+            id_usuario=user_id,
+            descripcion=result.sample_id,
+            estado="Analizada",
+            imagen_url=result.original_image_url,
+            client_uuid=client_uuid,
+        )
 
-    db.flush()
+        db.add(muestra)
+        db.flush()
 
-    registro = ResultadoAnalisis(
-        id_muestra=muestra.id_muestra,
+        registro = ResultadoAnalisis(
+            id_muestra=muestra.id_muestra,
+            total_particulas=result.total_particles,
+            confianza_promedio=result.confidence,
+            desglose=dict(result.breakdown),
+            detecciones=[
+                detection.model_dump()
+                for detection in result.detections
+            ],
+            tiempo_procesamiento_ms=result.processing_time_ms,
+            imagen_anotada_url=result.annotated_image_url,
+            modelo_nombre=result.modelo_nombre,
+            modelo_version=result.modelo_version,
+            modelo_origen=result.modelo_origen,
+            fecha_sincronizacion=(
+                func.now() if is_offline_sync else None
+            ),
+        )
 
-        total_particulas=(
-            result.total_particles
-        ),
+        db.add(registro)
+        db.commit()
+        db.refresh(registro)
+        return registro
 
-        confianza_promedio=(
-            result.confidence
-        ),
+    except Exception:
+        db.rollback()
+        raise
 
-        desglose=dict(
-            result.breakdown
-        ),
-
-        detecciones=[
-            detection.model_dump()
-            for detection
-            in result.detections
-        ],
-
-        tiempo_procesamiento_ms=(
-            result.processing_time_ms
-        ),
-
-        imagen_anotada_url=(
-            result.annotated_image_url
-        ),
-
-        modelo_nombre=(
-            result.modelo_nombre
-        ),
-
-        modelo_version=(
-            result.modelo_version
-        ),
-
-        modelo_origen=(
-            result.modelo_origen
-        ),
-    )
-
-    
-    db.add(registro)
-
-    db.commit()
-
-    db.refresh(registro)
-
-
-    return registro
 
 def list_results(
     db: Session,
@@ -91,18 +79,12 @@ def list_results(
     consulta = (
         db.query(ResultadoAnalisis)
         .join(ResultadoAnalisis.muestra)
-        .options(
-            joinedload(ResultadoAnalisis.muestra)
-        )
-        .filter(
-            Muestra.id_usuario == user_id
-        )
+        .options(joinedload(ResultadoAnalisis.muestra))
+        .filter(Muestra.id_usuario == user_id)
     )
 
     if query:
-
         patron = f"%{query.strip()}%"
-
         consulta = consulta.filter(
             Muestra.descripcion.ilike(patron)
         )
@@ -132,9 +114,7 @@ def get_result(
     return (
         db.query(ResultadoAnalisis)
         .join(ResultadoAnalisis.muestra)
-        .options(
-            joinedload(ResultadoAnalisis.muestra)
-        )
+        .options(joinedload(ResultadoAnalisis.muestra))
         .filter(
             ResultadoAnalisis.id_resultado == result_id,
             Muestra.id_usuario == user_id,
@@ -158,7 +138,6 @@ def get_results_by_ids(
     result_ids: Sequence[int],
     user_id: int,
 ) -> Sequence[ResultadoAnalisis]:
-    """Return the given analyses that belong to the user."""
 
     if not result_ids:
         return []
@@ -166,9 +145,7 @@ def get_results_by_ids(
     return (
         db.query(ResultadoAnalisis)
         .join(ResultadoAnalisis.muestra)
-        .options(
-            joinedload(ResultadoAnalisis.muestra)
-        )
+        .options(joinedload(ResultadoAnalisis.muestra))
         .filter(
             ResultadoAnalisis.id_resultado.in_(list(result_ids)),
             Muestra.id_usuario == user_id,
@@ -199,7 +176,6 @@ def to_history_item(
         total_particles=registro.total_particulas,
         confidence=registro.confianza_promedio,
         annotated_image_url=registro.imagen_anotada_url,
-        
         modelo_nombre=registro.modelo_nombre,
         modelo_version=registro.modelo_version,
         modelo_origen=registro.modelo_origen,
@@ -212,16 +188,63 @@ def to_history_detail(
 
     detecciones = [
         DetectionItem.model_validate(deteccion)
-        for deteccion in (
-            registro.detecciones or []
-        )
+        for deteccion in (registro.detecciones or [])
     ]
 
     return HistoryDetail(
         **to_history_item(registro).model_dump(),
         breakdown=registro.desglose or {},
         detections=detecciones,
-        processing_time_ms=(
-            registro.tiempo_procesamiento_ms
+        processing_time_ms=registro.tiempo_procesamiento_ms,
+    )
+
+
+def get_existing_analysis(
+    db: Session,
+    user_id: int,
+    client_uuid: str,
+) -> Optional[ResultadoAnalisis]:
+
+    return (
+        db.query(ResultadoAnalisis)
+        .join(ResultadoAnalisis.muestra)
+        .options(joinedload(ResultadoAnalisis.muestra))
+        .filter(
+            Muestra.id_usuario == user_id,
+            Muestra.client_uuid == client_uuid,
+        )
+        .first()
+    )
+
+
+def to_analysis_data(
+    registro: ResultadoAnalisis
+) -> AnalysisData:
+
+    muestra = registro.muestra
+
+    detecciones = [
+        DetectionItem.model_validate(detection)
+        for detection in (registro.detecciones or [])
+    ]
+
+    return AnalysisData(
+        result_id=registro.id_resultado,
+        sample_id=(
+            muestra.descripcion
+            if muestra and muestra.descripcion
+            else f"MUESTRA-{muestra.id_muestra}"
         ),
+        total_particles=registro.total_particulas,
+        confidence=registro.confianza_promedio,
+        breakdown=registro.desglose or {},
+        detections=detecciones,
+        processing_time_ms=registro.tiempo_procesamiento_ms,
+        original_image_url=(
+            muestra.imagen_url if muestra else None
+        ),
+        annotated_image_url=registro.imagen_anotada_url,
+        modelo_nombre=registro.modelo_nombre,
+        modelo_version=registro.modelo_version,
+        modelo_origen=registro.modelo_origen,
     )
