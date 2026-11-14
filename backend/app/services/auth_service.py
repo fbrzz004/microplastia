@@ -1,6 +1,7 @@
 from sqlalchemy.orm import Session
 
 from app.core.security import (
+    DUMMY_PASSWORD_HASH,
     hash_password,
     verify_password,
 )
@@ -83,6 +84,16 @@ def authenticate_user(
     )
 
     if usuario is None:
+
+        # Verificación de referencia para que el
+        # tiempo de respuesta no delate si el correo
+        # está registrado.
+
+        verify_password(
+            password,
+            DUMMY_PASSWORD_HASH,
+        )
+
         return None
 
     if not verify_password(

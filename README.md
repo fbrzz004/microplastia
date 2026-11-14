@@ -125,9 +125,21 @@ La configuración de la URL debe mantenerse centralizada en el archivo de config
 Los reportes se generan en el backend, se guardan en `backend/static/reports`
 y se abren desde la aplicación mediante su URL.
 
+## Estrategia de ramas
+
+El repositorio mantiene una jerarquía única de ramas:
+
+1. `main`: producción. Solo recibe versiones aprobadas desde `dev`.
+2. `dev`: integración. Recibe las ramas de trabajo cuando todas las pruebas pasan.
+3. `feat/<tema>` y `fix/<tema>`: una rama por tarea, creada desde `dev`.
+
+Una rama de trabajo se elimina después de integrarse en `dev`. Las ramas
+antiguas que ya estén contenidas en `dev` no se conservan.
+
 ## Buenas prácticas para contribuir
 
-* Crear una rama propia para cada funcionalidad.
+* Crear una rama `feat/*` o `fix/*` desde `dev` para cada funcionalidad.
+* Integrar en `dev` solo con las pruebas en verde y eliminar la rama después.
 * Mantener los cambios organizados y realizar commits descriptivos.
 * Ejecutar `flutter analyze` antes de enviar cambios del frontend.
 * Verificar el funcionamiento del backend antes de enviar cambios de la API.

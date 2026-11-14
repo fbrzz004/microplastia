@@ -39,6 +39,25 @@ def validate_password(
         )
 
 
+    # Bcrypt solo procesa los primeros 72 bytes.
+    # Un límite en caracteres no basta para textos
+    # con caracteres multibyte (por ejemplo, tildes).
+
+    if (
+        len(
+            password.encode(
+                "utf-8"
+            )
+        )
+        > 72
+    ):
+
+        errors.append(
+            "La contraseña es demasiado larga "
+            "para almacenarse de forma segura."
+        )
+
+
     if not re.search(
         r"[A-Z]",
         password,

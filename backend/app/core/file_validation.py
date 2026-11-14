@@ -40,6 +40,12 @@ MAX_IMAGE_HEIGHT = 12000
 MAX_IMAGE_PIXELS = 40_000_000
 
 
+# Pillow debe negarse a decodificar imágenes que
+# superen el mismo límite que validamos nosotros.
+
+Image.MAX_IMAGE_PIXELS = MAX_IMAGE_PIXELS
+
+
 # ==========================================================
 # SAMPLE ID
 # ==========================================================
@@ -206,18 +212,10 @@ def _decode_with_pillow(
 # VALIDAR DIMENSIONES
 # ==========================================================
 
-def _validate_dimensions(
-    image: np.ndarray,
+def _validate_dimension_values(
+    width: int,
+    height: int,
 ) -> None:
-
-    if image.ndim < 2:
-
-        raise InvalidUploadError(
-            "La imagen no tiene "
-            "dimensiones válidas."
-        )
-
-    height, width = image.shape[:2]
 
     if (
         width <= 0
@@ -250,6 +248,67 @@ def _validate_dimensions(
         )
 
 
+def _validate_header_dimensions(
+    image_bytes: bytes,
+) -> None:
+    """
+    Lee solo la cabecera de la imagen y valida sus
+    dimensiones antes de decodificar todos los píxeles.
+
+    Evita que una imagen muy comprimida con dimensiones
+    enormes consuma memoria durante la decodificación.
+    """
+
+    try:
+
+        with Image.open(
+            io.BytesIO(
+                image_bytes
+            )
+        ) as pil_image:
+
+            width, height = (
+                pil_image.size
+            )
+
+    except Image.DecompressionBombError as exc:
+
+        raise InvalidUploadError(
+            "La imagen contiene "
+            "demasiados píxeles."
+        ) from exc
+
+    except Exception:
+
+        # Si la cabecera no se puede leer,
+        # los decodificadores harán la validación.
+        return
+
+    _validate_dimension_values(
+        width,
+        height,
+    )
+
+
+def _validate_dimensions(
+    image: np.ndarray,
+) -> None:
+
+    if image.ndim < 2:
+
+        raise InvalidUploadError(
+            "La imagen no tiene "
+            "dimensiones válidas."
+        )
+
+    height, width = image.shape[:2]
+
+    _validate_dimension_values(
+        width,
+        height,
+    )
+
+
 # ==========================================================
 # DECODIFICACIÓN Y VALIDACIÓN COMPLETA
 # ==========================================================
@@ -268,7 +327,16 @@ def decode_and_validate_image(
 
 
     # ------------------------------------------------------
-    # 2. Intentar OpenCV
+    # 2. Dimensiones desde la cabecera
+    # ------------------------------------------------------
+
+    _validate_header_dimensions(
+        image_bytes
+    )
+
+
+    # ------------------------------------------------------
+    # 3. Intentar OpenCV
     #
     # JPG / PNG / WEBP normalmente entran aquí.
     # ------------------------------------------------------
@@ -279,7 +347,7 @@ def decode_and_validate_image(
 
 
     # ------------------------------------------------------
-    # 3. Fallback Pillow
+    # 4. Fallback Pillow
     # ------------------------------------------------------
 
     if image is None:
@@ -290,7 +358,7 @@ def decode_and_validate_image(
 
 
     # ------------------------------------------------------
-    # 4. Ningún decoder pudo abrirlo
+    # 5. Ningún decoder pudo abrirlo
     # ------------------------------------------------------
 
     if image is None:
@@ -303,7 +371,7 @@ def decode_and_validate_image(
 
 
     # ------------------------------------------------------
-    # 5. Dimensiones
+    # 6. Dimensiones
     # ------------------------------------------------------
 
     _validate_dimensions(

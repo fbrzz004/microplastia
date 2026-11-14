@@ -1,4 +1,5 @@
 import json
+import re
 import uuid
 
 
@@ -257,3 +258,41 @@ def test_report_rejects_foreign_result(
         403,
         404,
     }
+
+# ==========================================================
+# NOMBRE DE ARCHIVO CON ALTA ENTROPÍA
+# ==========================================================
+
+def test_report_filename_has_high_entropy(
+    client,
+    auth_headers,
+):
+    analysis = _analyze(
+        client,
+        auth_headers,
+        f"REP-{uuid.uuid4().hex[:8].upper()}",
+    )
+
+    response = client.post(
+        "/api/v1/reports",
+        headers=auth_headers,
+        json={
+            "result_ids": [
+                analysis["result_id"],
+            ],
+        },
+    )
+
+    assert response.status_code == 201, (
+        response.text
+    )
+
+    filename = (
+        response.json()
+        ["data"]["filename"]
+    )
+
+    assert re.fullmatch(
+        r"reporte_\d+_\d{8}_\d{6}_[0-9a-f]{32}\.pdf",
+        filename,
+    ), filename

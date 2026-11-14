@@ -24,6 +24,7 @@ from app.api.v1.router import (
 )
 from app.core.config import (
     settings,
+    validate_production_settings,
 )
 from app.core.exceptions import (
     database_exception_handler,
@@ -43,6 +44,13 @@ from app.db.session import (
 # ==========================================================
 
 configure_logging()
+
+
+# ==========================================================
+# CONFIGURACIÓN DE PRODUCCIÓN
+# ==========================================================
+
+validate_production_settings()
 
 
 # ==========================================================
@@ -66,19 +74,19 @@ app = FastAPI(
 
     docs_url=(
         "/docs"
-        if settings.docs_enabled
+        if settings.docs_available
         else None
     ),
 
     redoc_url=(
         "/redoc"
-        if settings.docs_enabled
+        if settings.docs_available
         else None
     ),
 
     openapi_url=(
         "/openapi.json"
-        if settings.docs_enabled
+        if settings.docs_available
         else None
     ),
 )

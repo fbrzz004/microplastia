@@ -193,6 +193,21 @@ class Settings(BaseSettings):
 
 
     @property
+    def docs_available(
+        self,
+    ) -> bool:
+        """
+        La documentación interactiva nunca se expone
+        en producción, aunque DOCS_ENABLED sea true.
+        """
+
+        return (
+            self.docs_enabled
+            and not self.is_production
+        )
+
+
+    @property
     def cors_origins(
         self,
     ) -> list[str]:
@@ -247,6 +262,109 @@ class Settings(BaseSettings):
             protected_namespaces=(),
         )
     )
+
+
+# ==========================================================
+# VALIDACIÓN DE PRODUCCIÓN
+# ==========================================================
+
+PLACEHOLDER_SECRETS = {
+    (
+        "reemplaza-esta-clave-por-una-clave-segura-"
+        "de-al-menos-32-caracteres"
+    ),
+    "changeme",
+    "secret",
+}
+
+LOCAL_HOSTS = {
+    "localhost",
+    "127.0.0.1",
+    "0.0.0.0",
+    "::1",
+}
+
+
+def production_config_errors(
+    config: Settings,
+) -> list[str]:
+
+    if not config.is_production:
+
+        return []
+
+    errors: list[str] = []
+
+    secret = config.secret_key.strip()
+
+    if (
+        secret.lower()
+        in PLACEHOLDER_SECRETS
+        or len(secret) < 32
+    ):
+
+        errors.append(
+            "SECRET_KEY debe ser una clave "
+            "aleatoria de al menos 32 caracteres."
+        )
+
+    for host in config.trusted_hosts:
+
+        if (
+            host.lower() in LOCAL_HOSTS
+            or host == "*"
+        ):
+
+            errors.append(
+                "ALLOWED_HOSTS debe contener "
+                "solo los dominios reales."
+            )
+
+            break
+
+    if not config.trusted_hosts:
+
+        errors.append(
+            "ALLOWED_HOSTS no puede estar vacío "
+            "en producción."
+        )
+
+    for origin in config.cors_origins:
+
+        normalized = origin.lower()
+
+        if (
+            normalized == "*"
+            or any(
+                local in normalized
+                for local in LOCAL_HOSTS
+            )
+            or not normalized.startswith("https://")
+        ):
+
+            errors.append(
+                "ALLOWED_ORIGINS debe contener "
+                "solo orígenes HTTPS reales."
+            )
+
+            break
+
+    return errors
+
+
+def validate_production_settings() -> None:
+
+    errors = production_config_errors(
+        settings
+    )
+
+    if errors:
+
+        raise RuntimeError(
+            "Configuración de producción "
+            "insegura: "
+            + " ".join(errors)
+        )
 
 
 settings = Settings()
