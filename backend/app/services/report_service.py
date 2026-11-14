@@ -261,9 +261,13 @@ def generate_report(
     directory.mkdir(parents=True, exist_ok=True)
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    # El nombre del reporte es una URL de capacidad:
+    # se sirve desde /static sin autenticación, así que
+    # necesita 128 bits de entropía para no ser adivinable.
+
     filename = (
         f"reporte_{user.id_usuario}_{timestamp}_"
-        f"{uuid4().hex[:6]}.pdf"
+        f"{uuid4().hex}.pdf"
     )
     path = directory / filename
 

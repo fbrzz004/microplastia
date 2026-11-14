@@ -34,6 +34,17 @@ pwd_context = CryptContext(
 )
 
 
+# Hash de referencia para verificar siempre una
+# contraseña cuando el correo no existe. Evita que
+# el tiempo de respuesta revele qué cuentas existen.
+
+DUMMY_PASSWORD_HASH = (
+    pwd_context.hash(
+        "microplastia-dummy-password"
+    )
+)
+
+
 def hash_password(
     password: str,
 ) -> str:

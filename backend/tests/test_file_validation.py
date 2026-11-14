@@ -137,3 +137,37 @@ def test_invalid_content_type():
     except ValueError:
 
         assert True
+
+# ==========================================================
+# DIMENSIONES EXCESIVAS (ANTES DE DECODIFICAR)
+# ==========================================================
+
+def test_oversized_dimensions_are_rejected_from_header():
+
+    image = Image.new(
+        "RGB",
+        (12001, 1),
+        color=(120, 160, 200),
+    )
+
+    buffer = BytesIO()
+
+    image.save(
+        buffer,
+        format="PNG",
+    )
+
+    try:
+
+        decode_and_validate_image(
+            buffer.getvalue()
+        )
+
+        assert False, (
+            "Debió rechazar una imagen "
+            "demasiado ancha"
+        )
+
+    except ValueError:
+
+        assert True

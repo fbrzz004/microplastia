@@ -13,7 +13,11 @@ from fastapi import (
     UploadFile,
     status,
 )
-from pydantic import BaseModel, Field
+from pydantic import (
+    BaseModel,
+    Field,
+    field_validator,
+)
 from sqlalchemy.orm import Session
 
 from app.core.file_validation import (
@@ -76,6 +80,7 @@ class MobileAnalysisRequest(BaseModel):
 
     total_particles: int = Field(
         ge=0,
+        le=100_000,
     )
 
     modelo_nombre: Optional[str] = Field(
@@ -100,11 +105,42 @@ class MobileAnalysisRequest(BaseModel):
 
     breakdown: Dict[str, int]
 
-    detections: List[MobileDetection]
+    detections: List[MobileDetection] = Field(
+        max_length=1000,
+    )
 
     processing_time_ms: float = Field(
         ge=0.0,
+        le=86_400_000.0,
     )
+
+    @field_validator("breakdown")
+    @classmethod
+    def validate_breakdown(
+        cls,
+        value: Dict[str, int],
+    ) -> Dict[str, int]:
+
+        if len(value) > 10:
+
+            raise ValueError(
+                "El desglose tiene demasiadas categorías."
+            )
+
+        for key, count in value.items():
+
+            if (
+                not key
+                or len(key) > 50
+                or count < 0
+                or count > 100_000
+            ):
+
+                raise ValueError(
+                    "El desglose contiene valores no válidos."
+                )
+
+        return value
 
 
 # ==========================================================

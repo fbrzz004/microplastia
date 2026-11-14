@@ -295,3 +295,92 @@ def test_mobile_analyze_rejects_corrupt_image(
     )
 
     assert response.status_code == 400
+
+def test_mobile_analyze_rejects_excessive_total_particles(
+    client,
+    auth_headers,
+):
+    payload = _mobile_payload(
+        "TEST-EXCESSIVE-TOTAL"
+    )
+
+    payload["total_particles"] = 100001
+
+    response = client.post(
+        "/api/v1/analyze/mobile",
+        headers=auth_headers,
+        data={
+            "payload": json.dumps(
+                payload,
+                ensure_ascii=False,
+            ),
+        },
+    )
+
+    assert response.status_code == 400
+
+    assert (
+        "no son válidos"
+        in response.json()["detail"]
+    )
+
+
+def test_mobile_analyze_rejects_oversized_breakdown(
+    client,
+    auth_headers,
+):
+    payload = _mobile_payload(
+        "TEST-OVERSIZED-BREAKDOWN"
+    )
+
+    payload["breakdown"] = {
+        f"clase_{indice}": 0
+        for indice in range(11)
+    }
+
+    response = client.post(
+        "/api/v1/analyze/mobile",
+        headers=auth_headers,
+        data={
+            "payload": json.dumps(
+                payload,
+                ensure_ascii=False,
+            ),
+        },
+    )
+
+    assert response.status_code == 400
+
+    assert (
+        "no son válidos"
+        in response.json()["detail"]
+    )
+
+
+def test_mobile_analyze_rejects_excessive_processing_time(
+    client,
+    auth_headers,
+):
+    payload = _mobile_payload(
+        "TEST-EXCESSIVE-TIME"
+    )
+
+    payload["processing_time_ms"] = 86400001
+
+    response = client.post(
+        "/api/v1/analyze/mobile",
+        headers=auth_headers,
+        data={
+            "payload": json.dumps(
+                payload,
+                ensure_ascii=False,
+            ),
+        },
+    )
+
+    assert response.status_code == 400
+
+    assert (
+        "no son válidos"
+        in response.json()["detail"]
+    )

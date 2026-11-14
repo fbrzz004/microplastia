@@ -305,3 +305,30 @@ def test_invalid_token_rejected(
         response.status_code
         == 401
     )
+
+# ==========================================================
+# LÍMITE DE BYTES DE BCRYPT
+# ==========================================================
+
+def test_register_rejects_password_over_bcrypt_byte_limit(
+    client,
+    correo_unico,
+):
+
+    password_multibyte = (
+        "Aa1!" + ("á" * 40)
+    )
+
+    response = client.post(
+        "/api/v1/auth/register",
+        json={
+            "nombre": "Test",
+            "apellido": "Automático",
+            "correo": correo_unico,
+            "password": password_multibyte,
+        },
+    )
+
+    assert response.status_code == 400, (
+        response.text
+    )
