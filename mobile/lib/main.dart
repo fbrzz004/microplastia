@@ -1,8 +1,10 @@
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'routes/app_router.dart';
 import 'services/session_service.dart';
+import 'services/connectivity_service.dart';
 import 'viewmodels/analysis_viewmodel.dart';
 import 'viewmodels/history_viewmodel.dart';
 import 'viewmodels/login_viewmodel.dart';
@@ -11,7 +13,13 @@ import 'viewmodels/register_viewmodel.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // Comprobar si existe una sesión guardada.
   final hasSession = await SessionService.hasToken();
+
+  // Inicializar la base de datos local y la sincronización.
+  await ConnectivityService.instance.initialize(
+    hasSession: hasSession,
+  );
 
   runApp(MyApp(hasSession: hasSession));
 }
@@ -25,18 +33,10 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider(
-          create: (_) => AnalysisViewModel(),
-        ),
-        ChangeNotifierProvider(
-          create: (_) => HistoryViewModel(),
-        ),
-        ChangeNotifierProvider(
-          create: (_) => LoginViewModel(),
-        ),
-        ChangeNotifierProvider(
-          create: (_) => RegisterViewModel(),
-        ),
+        ChangeNotifierProvider(create: (_) => AnalysisViewModel()),
+        ChangeNotifierProvider(create: (_) => HistoryViewModel()),
+        ChangeNotifierProvider(create: (_) => LoginViewModel()),
+        ChangeNotifierProvider(create: (_) => RegisterViewModel()),
       ],
       child: MaterialApp.router(
         debugShowCheckedModeBanner: false,

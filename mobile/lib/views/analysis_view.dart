@@ -62,7 +62,6 @@ class _AnalysisViewState extends State<AnalysisView> {
   Future<void> _tomarFotografia() =>
       _cargarImagen(ImageSource.camera);
 
-  
   Future<void> _subirImagen() async {
     if (_imagenSeleccionada == null || _imagenBytes == null) {
       setState(() {
@@ -81,16 +80,32 @@ class _AnalysisViewState extends State<AnalysisView> {
 
     if (!mounted) return;
 
-    if (correcto) {
-      unawaited(context.read<HistoryViewModel>().refrescar());
-      context.go('/result');
-    } else {
+    if (!correcto) {
       setState(() {
         _mensaje = viewModel.errorMessage;
         _error = true;
       });
+      return;
+    }
+
+    // La muestra se guardó localmente,
+    // pero todavía no se obtuvo un análisis del servidor.
+    if (viewModel.isOfflinePending) {
+      setState(() {
+        _mensaje = viewModel.errorMessage ??
+            'La muestra se guardó correctamente y está pendiente de sincronización.';
+        _error = false;
+      });
+      return;
+    }
+
+    // Solo navegamos cuando existe un resultado del backend.
+    if (viewModel.resultado != null) {
+      unawaited(context.read<HistoryViewModel>().refrescar());
+      context.go('/result');
     }
   }
+
 
   void _quitarImagen() {
   if (context.read<AnalysisViewModel>().isLoading) return;

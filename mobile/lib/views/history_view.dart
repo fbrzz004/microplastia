@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../core/utils/format.dart';
 import '../models/analysis_result.dart';
+import '../models/pending_sample.dart';
 import '../viewmodels/history_viewmodel.dart';
 
 class HistoryView extends StatefulWidget {
@@ -304,8 +305,30 @@ class _HistoryViewState extends State<HistoryView> {
           child: _AnalysisCard(
             item: item,
             selected: viewModel.estaSeleccionado(item.id),
-            onOpen: () => context.push('/history/${item.id}'),
-            onToggle: () => viewModel.alternarSeleccion(item.id),
+            onOpen: () {
+              if (!item.canOpenDetail) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text(
+                      'Esta muestra todavía no está sincronizada. '
+                      'Podrás consultar su detalle cuando se complete la sincronización.',
+                    ),
+                  ),
+                );
+                return;
+              }
+
+              if (item.isLocal) {
+                context.push('/history/local/${item.clientUuid}');
+              } else {
+                context.push('/history/${item.id}');
+              }
+            },
+            onToggle: () {
+              if (item.canOpenDetail) {
+                viewModel.alternarSeleccion(item.id);
+              }
+            },
           ),
         ),
       ),
@@ -333,8 +356,38 @@ class _AnalysisCard extends StatelessWidget {
     required this.onToggle,
   });
 
+  String? _estadoLocal() {
+    if (!item.isLocal || item.isSynced) return null;
+
+    switch (item.syncStatus) {
+      case PendingSample.syncing:
+        return 'Sincronizando';
+      case PendingSample.error:
+        return 'Error de sincronización';
+      case PendingSample.pending:
+        return 'Pendiente de sincronizar';
+      default:
+        return 'Guardado en el dispositivo';
+    }
+  }
+
+  Color _colorEstado() {
+    switch (item.syncStatus) {
+      case PendingSample.syncing:
+        return Colors.blue;
+      case PendingSample.error:
+        return Colors.redAccent;
+      case PendingSample.pending:
+        return Colors.orange.shade800;
+      default:
+        return secundario;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final estado = _estadoLocal();
+    final puedeSeleccionarse = item.canOpenDetail;
     return InkWell(
       onTap: onOpen,
       borderRadius: BorderRadius.circular(15),
@@ -386,21 +439,50 @@ class _AnalysisCard extends StatelessWidget {
                       color: secundario,
                     ),
                   ),
+                  if (estado != null) ...[
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        Icon(
+                          item.syncStatus == PendingSample.syncing
+                              ? Icons.sync
+                              : item.syncStatus == PendingSample.error
+                                  ? Icons.error_outline
+                                  : Icons.cloud_upload_outlined,
+                          size: 13,
+                          color: _colorEstado(),
+                        ),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            estado,
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                              color: _colorEstado(),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ],
               ),
             ),
             const SizedBox(width: 6),
             Text(
               '${item.confidencePercent}%',
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
-                color: verde,
+                color: item.isLocal && !item.isSynced
+                    ? secundario
+                    : verde,
               ),
             ),
             Checkbox(
               value: selected,
-              onChanged: (_) => onToggle(),
+              onChanged: puedeSeleccionarse ? (_) => onToggle() : null,
               activeColor: azul,
               side: const BorderSide(
                 color: Color(0xFFB8CBE0),

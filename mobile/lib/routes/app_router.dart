@@ -74,6 +74,14 @@ GoRouter createRouter(bool hasSession) {
                       return HistoryDetailView(resultId: id);
                     },
                   ),
+                  GoRoute(
+                    path: 'local/:uuid',
+                    builder: (context, state) {
+                      return HistoryDetailView(
+                        clientUuid: state.pathParameters['uuid']!,
+                      );
+                    },
+                  ),
                 ],
               ),
             ],

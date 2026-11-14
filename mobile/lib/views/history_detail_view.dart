@@ -1,16 +1,24 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../core/config/app_config.dart';
 import '../models/analysis_result.dart';
+import '../models/pending_sample.dart';
 import '../viewmodels/history_detail_viewmodel.dart';
 
+
 class HistoryDetailView extends StatelessWidget {
-  final int resultId;
+  final int? resultId;
+  final String? clientUuid;
 
   const HistoryDetailView({
     super.key,
-    required this.resultId,
-  });
+    this.resultId,
+    this.clientUuid,
+  }) : assert(
+          resultId != null || clientUuid != null,
+          'Debes proporcionar resultId o clientUuid.',
+        );
 
   static const Color azul = Color(0xFF1976E9);
   static const Color texto = Color(0xFF203653);
@@ -23,16 +31,33 @@ class HistoryDetailView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
-      create: (_) => HistoryDetailViewModel()..cargar(resultId),
-      child: _HistoryDetailContent(resultId: resultId),
+      create: (_) {
+        final vm = HistoryDetailViewModel();
+
+        if (clientUuid != null) {
+          vm.cargarLocal(clientUuid!);
+        } else {
+          vm.cargar(resultId!);
+        }
+
+        return vm;
+      },
+      child: _HistoryDetailContent(
+        resultId: resultId,
+        clientUuid: clientUuid,
+      ),
     );
   }
 }
 
 class _HistoryDetailContent extends StatelessWidget {
-  final int resultId;
+  final int? resultId;
+  final String? clientUuid;
 
-  const _HistoryDetailContent({required this.resultId});
+  const _HistoryDetailContent({
+    this.resultId,
+    this.clientUuid,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -68,7 +93,10 @@ class _HistoryDetailContent extends StatelessWidget {
     );
   }
 
-  Widget _contenido(BuildContext context, HistoryDetailViewModel vm) {
+  Widget _contenido(
+    BuildContext context,
+    HistoryDetailViewModel vm,
+  ) {
     if (vm.isLoading && vm.detalle == null) {
       return const Center(
         child: CircularProgressIndicator(
@@ -83,7 +111,7 @@ class _HistoryDetailContent extends StatelessWidget {
         titulo: 'No se pudo cargar el análisis',
         mensaje: vm.errorMessage!,
         textoBoton: 'Reintentar',
-        onPressed: () => vm.reintentar(resultId),
+        onPressed: vm.reintentar,
       );
     }
 
@@ -97,50 +125,202 @@ class _HistoryDetailContent extends StatelessWidget {
       );
     }
 
+    final tieneResultados = detalle.totalParticles > 0 ||
+        detalle.detections.isNotEmpty ||
+        detalle.breakdown.isNotEmpty;
+
     return RefreshIndicator(
       color: HistoryDetailView.azul,
-      onRefresh: () => vm.reintentar(resultId),
+      onRefresh: vm.reintentar,
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(18, 8, 18, 28),
         children: [
           _encabezado(detalle),
+          const SizedBox(height: 16),
+
+          if (detalle.isLocal)
+            _estadoSincronizacion(detalle),
+
           const SizedBox(height: 20),
-          _ImagenAnalisis(url: _resolverImagen(detalle.annotatedImageUrl)),
-          const SizedBox(height: 22),
-          const Text(
-            'Resumen de resultados',
-            style: TextStyle(
-              fontSize: 19,
-              fontWeight: FontWeight.w800,
-              color: HistoryDetailView.texto,
-            ),
+
+          _ImagenAnalisis(
+            url: _resolverImagen(detalle.annotatedImageUrl),
+            localImagePath: detalle.localImagePath,
           ),
-          const SizedBox(height: 5),
-          Text(
-            '${detalle.totalParticles} partículas detectadas',
-            style: const TextStyle(
-              fontSize: 14,
-              color: HistoryDetailView.secundario,
-            ),
-          ),
-          const SizedBox(height: 14),
-          _tarjetaConfianza(detalle),
-          const SizedBox(height: 18),
-          _tarjetasCategorias(detalle),
+
           const SizedBox(height: 22),
-          _seccionTecnica(detalle),
-          if (detalle.detections.isNotEmpty) ...[
+
+          if (!tieneResultados) ...[
+            _mensajeSinResultados(detalle),
+          ] else ...[
+            const Text(
+              'Resumen de resultados',
+              style: TextStyle(
+                fontSize: 19,
+                fontWeight: FontWeight.w800,
+                color: HistoryDetailView.texto,
+              ),
+            ),
+            const SizedBox(height: 5),
+            Text(
+              '${detalle.totalParticles} partículas detectadas',
+              style: const TextStyle(
+                fontSize: 14,
+                color: HistoryDetailView.secundario,
+              ),
+            ),
+            const SizedBox(height: 14),
+            _tarjetaConfianza(detalle),
+            const SizedBox(height: 18),
+            _tarjetasCategorias(detalle),
             const SizedBox(height: 22),
-            _listaDetecciones(detalle),
+            _seccionTecnica(detalle),
+
+            if (detalle.detections.isNotEmpty) ...[
+              const SizedBox(height: 22),
+              _listaDetecciones(detalle),
+            ],
           ],
+
           if (vm.errorMessage != null) ...[
             const SizedBox(height: 12),
             Text(
               'Aviso: ${vm.errorMessage}',
-              style: const TextStyle(color: HistoryDetailView.naranja),
+              style: const TextStyle(
+                color: HistoryDetailView.naranja,
+              ),
             ),
           ],
+        ],
+      ),
+    );
+  }
+
+  Widget _estadoSincronizacion(AnalysisDetail detalle) {
+    final status = detalle.syncStatus;
+
+    final String titulo;
+    final String mensaje;
+    final IconData icono;
+    final Color color;
+
+    switch (status) {
+      case PendingSample.synced:
+        titulo = 'Muestra sincronizada';
+        mensaje = 'La muestra se guardó correctamente en el servidor.';
+        icono = Icons.cloud_done_outlined;
+        color = HistoryDetailView.verde;
+        break;
+
+      case PendingSample.syncing:
+        titulo = 'Sincronizando muestra';
+        mensaje = 'La muestra está enviándose al servidor para su análisis.';
+        icono = Icons.cloud_sync_outlined;
+        color = HistoryDetailView.azul;
+        break;
+
+      case PendingSample.error:
+        titulo = 'Error de sincronización';
+        mensaje = 'No se pudo enviar la muestra. Se conserva en este dispositivo.';
+        icono = Icons.cloud_off_outlined;
+        color = HistoryDetailView.naranja;
+        break;
+
+      default:
+        titulo = 'Pendiente de sincronizar';
+        mensaje = 'La imagen está guardada en el dispositivo. Se analizará cuando pueda enviarse al servidor.';
+        icono = Icons.cloud_upload_outlined;
+        color = HistoryDetailView.naranja;
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(15),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(
+          color: color.withValues(alpha: 0.25),
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icono, color: color, size: 23),
+          const SizedBox(width: 11),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  titulo,
+                  style: TextStyle(
+                    color: color,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  mensaje,
+                  style: const TextStyle(
+                    color: HistoryDetailView.texto,
+                    fontSize: 12,
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _mensajeSinResultados(AnalysisDetail detalle) {
+    final pendiente = detalle.isLocal && !detalle.isSynced;
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF7F9FC),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: HistoryDetailView.borde,
+        ),
+      ),
+      child: Column(
+        children: [
+          Icon(
+            pendiente
+                ? Icons.hourglass_empty_rounded
+                : Icons.analytics_outlined,
+            size: 36,
+            color: HistoryDetailView.secundario,
+          ),
+          const SizedBox(height: 10),
+          Text(
+            pendiente
+                ? 'Análisis pendiente'
+                : 'No hay resultados disponibles',
+            style: const TextStyle(
+              color: HistoryDetailView.texto,
+              fontWeight: FontWeight.w800,
+              fontSize: 15,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            pendiente
+                ? 'Esta muestra todavía no ha sido procesada por el modelo de detección. Cuando se sincronice, podrás consultar las partículas detectadas y sus resultados.'
+                : 'No se encontraron datos de detección para esta muestra.',
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: HistoryDetailView.secundario,
+              fontSize: 13,
+              height: 1.5,
+            ),
+          ),
         ],
       ),
     );
@@ -507,8 +687,28 @@ class _HistoryDetailContent extends StatelessWidget {
 
 class _ImagenAnalisis extends StatelessWidget {
   final String? url;
+  final String? localImagePath;
 
-  const _ImagenAnalisis({required this.url});
+  const _ImagenAnalisis({
+    required this.url,
+    this.localImagePath,
+  });
+
+  Widget _imagenLocal() {
+    if (localImagePath == null ||
+        localImagePath!.isEmpty ||
+        !File(localImagePath!).existsSync()) {
+      return const _SinImagen();
+    }
+
+    return Image.file(
+      File(localImagePath!),
+      fit: BoxFit.contain,
+      errorBuilder: (context, error, stackTrace) {
+        return const _SinImagen();
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -519,11 +719,12 @@ class _ImagenAnalisis extends StatelessWidget {
       decoration: BoxDecoration(
         color: const Color(0xFFF0F4F8),
         borderRadius: BorderRadius.circular(19),
-        border: Border.all(color: HistoryDetailView.borde),
+        border: Border.all(
+          color: HistoryDetailView.borde,
+        ),
       ),
-      child: url == null
-          ? const _SinImagen()
-          : Image.network(
+      child: url != null
+          ? Image.network(
               url!,
               fit: BoxFit.contain,
               loadingBuilder: (context, child, progress) {
@@ -536,9 +737,10 @@ class _ImagenAnalisis extends StatelessWidget {
                 );
               },
               errorBuilder: (context, error, stackTrace) {
-                return const _SinImagen();
+                return _imagenLocal();
               },
-            ),
+            )
+          : _imagenLocal(),
     );
   }
 }

@@ -3,12 +3,14 @@ import 'package:flutter/foundation.dart';
 import '../core/utils/format.dart';
 import '../models/analysis_result.dart';
 import '../services/history_service.dart';
+import '../services/local_database_service.dart';
 
 class HistoryViewModel extends ChangeNotifier {
   HistoryViewModel({HistoryService? service})
       : _service = service ?? HistoryService();
 
   final HistoryService _service;
+  final LocalDatabaseService _database = LocalDatabaseService.instance;
 
   List<AnalysisSummary> _items = const [];
   bool _isLoading = false;
@@ -24,8 +26,20 @@ class HistoryViewModel extends ChangeNotifier {
   String get busqueda => _busqueda;
   int get cantidadSeleccionada => _seleccionados.length;
 
-  bool get todosSeleccionados =>
-      _items.isNotEmpty && _seleccionados.length == _items.length;
+  int get cantidadPendiente => _items.where(
+        (item) =>
+            item.isLocal &&
+            item.syncStatus != 'synced',
+      ).length;
+
+  bool get todosSeleccionados {
+    final seleccionables = _items
+        .where((item) => item.canOpenDetail)
+        .toList();
+
+    return seleccionables.isNotEmpty &&
+        seleccionables.every((item) => _seleccionados.contains(item.id));
+  }
 
   List<AnalysisSummary> get filtrados {
     final consulta = _busqueda.trim().toLowerCase();
@@ -50,18 +64,72 @@ class HistoryViewModel extends ChangeNotifier {
     _errorMessage = null;
     notifyListeners();
 
+    List<AnalysisSummary> localItems = [];
+    List<AnalysisSummary> remoteItems = [];
+
+    String? localError;
+    String? remoteError;
+
+    // 1. Consultar SQLite.
     try {
-      _items = await _service.listar();
-      _hasLoaded = true;
-      _seleccionados.removeWhere(
-        (id) => !_items.any((item) => item.id == id),
-      );
+      final samples = await _database.getAllSamples();
+
+      localItems = samples
+          .map(AnalysisSummary.fromPendingSample)
+          .toList();
     } catch (e) {
-      _errorMessage = e.toString().replaceFirst('Exception: ', '');
-    } finally {
-      _isLoading = false;
-      notifyListeners();
+      localError = e.toString().replaceFirst('Exception: ', '');
     }
+
+    // 2. Consultar el historial de FastAPI.
+    try {
+      remoteItems = await _service.listar();
+    } catch (e) {
+      remoteError = e.toString().replaceFirst('Exception: ', '');
+    }
+
+    // 3. Combinar registros. La versión remota tiene prioridad
+    // cuando una muestra aparece en ambas fuentes.
+    final combined = <String, AnalysisSummary>{};
+
+    for (final item in localItems) {
+      combined[item.sampleId] = item;
+    }
+
+    for (final item in remoteItems) {
+      combined[item.sampleId] = item;
+    }
+
+    // 4. Ordenar por fecha descendente.
+    _items = combined.values.toList()
+      ..sort((a, b) {
+        final fechaA = a.createdAt ?? DateTime(1970);
+        final fechaB = b.createdAt ?? DateTime(1970);
+        return fechaB.compareTo(fechaA);
+      });
+
+    // 5. Informar si alguna fuente no estuvo disponible.
+    if (remoteError != null && localItems.isNotEmpty) {
+      _errorMessage =
+          'No se pudo actualizar el historial del servidor. '
+          'Se muestran los registros guardados en el dispositivo.';
+    } else if (remoteError != null && localItems.isEmpty) {
+      _errorMessage = remoteError;
+    } else if (localError != null) {
+      _errorMessage =
+          'No se pudieron consultar todos los registros locales: '
+          '$localError';
+    }
+
+    _hasLoaded = true;
+
+    // Mantener únicamente las selecciones que siguen existiendo.
+    _seleccionados.removeWhere(
+      (id) => !_items.any((item) => item.id == id),
+    );
+
+    _isLoading = false;
+    notifyListeners();
   }
 
   Future<void> refrescar() => cargar(forzar: true);
@@ -82,12 +150,20 @@ class HistoryViewModel extends ChangeNotifier {
   }
 
   void alternarSeleccionTodos() {
+    final seleccionables = _items
+        .where((item) => item.canOpenDetail)
+        .toList();
+
+    if (seleccionables.isEmpty) return;
+
     if (todosSeleccionados) {
-      _seleccionados.clear();
+      _seleccionados.removeAll(
+        seleccionables.map((item) => item.id),
+      );
     } else {
-      _seleccionados
-        ..clear()
-        ..addAll(_items.map((item) => item.id));
+      _seleccionados.addAll(
+        seleccionables.map((item) => item.id),
+      );
     }
 
     notifyListeners();
