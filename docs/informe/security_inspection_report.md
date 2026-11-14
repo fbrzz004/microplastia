@@ -134,9 +134,24 @@ No secrets are committed. `backend/.env.example` contains placeholders only.
 ## 6. Git branch consolidation
 
 - `dev` created from `main` and fast-forwarded to `feature/reports`.
-- `main` was not modified.
+- `main` was not modified locally; `origin/main` advanced independently during the inspection
+  and is contained in `dev`.
 - Retired branches after verification: `feature/reports`, `feature/historial-analisis`,
-  `fix/historial-esquema`, `origin/feature/flutter-views`.
+  `fix/historial-esquema`, `origin/feature/flutter-views`, `origin/origin/feature/profile-flow`.
 - Archive tags preserve the retired tips: `archive/feature-historial-analisis`,
   `archive/fix-historial-esquema`.
 - Workflow documented in `README.md`: `main` ← `dev` ← `feat/*` / `fix/*`.
+- Left intact: `origin/origin/feature/continuity` (commit `0526049`, offline sample
+  synchronization). It is not contained in `dev` and needs review before it is renamed or
+  merged; deleting it would lose unmerged work.
+
+## 7. Production deployment note
+
+With the new startup guard, production will refuse to start unless:
+
+- `SECRET_KEY` is a random value of at least 32 characters (not the example placeholder).
+- `ALLOWED_HOSTS` lists the real API host.
+- `ALLOWED_ORIGINS` lists real HTTPS origins only.
+
+This is intentional fail-fast behavior. Update the production environment before deploying
+this branch.
