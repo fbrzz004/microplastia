@@ -1,3 +1,7 @@
+import 'dart:convert';
+
+import 'pending_sample.dart';
+
 class AnalysisDetection {
   final int classId;
   final String className;
@@ -31,6 +35,11 @@ class AnalysisSummary {
   final double confidence;
   final String? annotatedImageUrl;
 
+  final bool isLocal;
+  final String? clientUuid;
+  final String? localImagePath;
+  final String? syncStatus;
+
   const AnalysisSummary({
     required this.id,
     required this.sampleId,
@@ -38,6 +47,10 @@ class AnalysisSummary {
     required this.totalParticles,
     required this.confidence,
     required this.annotatedImageUrl,
+    this.isLocal = false,
+    this.clientUuid,
+    this.localImagePath,
+    this.syncStatus,
   });
 
   factory AnalysisSummary.fromJson(Map<String, dynamic> json) {
@@ -51,8 +64,33 @@ class AnalysisSummary {
     );
   }
 
-  /// Confianza expresada como porcentaje entero (0–100).
+  factory AnalysisSummary.fromPendingSample(PendingSample sample) {
+    final resultData = _extractResultData(sample.resultJson);
+    final serverId = _toInt(resultData['result_id']);
+
+    return AnalysisSummary(
+      id: sample.status == PendingSample.synced && serverId > 0
+          ? serverId
+          : -(sample.id ?? 1),
+      sampleId: sample.sampleId,
+      createdAt: sample.createdAt,
+      totalParticles: _toInt(resultData['total_particles']),
+      confidence: _toDouble(resultData['confidence']),
+      annotatedImageUrl: resultData['annotated_image_url']?.toString(),
+      isLocal: true,
+      clientUuid: sample.clientUuid,
+      localImagePath: sample.imagePath,
+      syncStatus: sample.status,
+    );
+  }
+
   int get confidencePercent => (confidence * 100).round();
+
+  bool get isSynced => syncStatus == PendingSample.synced;
+
+  bool get canOpenDetail => isLocal ? clientUuid != null : id > 0;
+
+  bool get canSelectForReport => !isLocal || (isSynced && id > 0);
 }
 
 class AnalysisDetail extends AnalysisSummary {
@@ -67,6 +105,10 @@ class AnalysisDetail extends AnalysisSummary {
     required super.totalParticles,
     required super.confidence,
     required super.annotatedImageUrl,
+    super.isLocal,
+    super.clientUuid,
+    super.localImagePath,
+    super.syncStatus,
     required this.breakdown,
     required this.detections,
     required this.processingTimeMs,
@@ -87,13 +129,65 @@ class AnalysisDetail extends AnalysisSummary {
       ),
       detections: (json['detections'] as List? ?? const [])
           .whereType<Map>()
-          .map((item) => AnalysisDetection.fromJson(
-                Map<String, dynamic>.from(item),
-              ))
+          .map(
+            (item) => AnalysisDetection.fromJson(
+              Map<String, dynamic>.from(item),
+            ),
+          )
           .toList(),
       processingTimeMs: _toDouble(json['processing_time_ms']),
     );
   }
+
+  factory AnalysisDetail.fromPendingSample(PendingSample sample) {
+    final resultData = _extractResultData(sample.resultJson);
+    final summary = AnalysisSummary.fromPendingSample(sample);
+
+    return AnalysisDetail(
+      id: summary.id,
+      sampleId: summary.sampleId,
+      createdAt: summary.createdAt,
+      totalParticles: summary.totalParticles,
+      confidence: summary.confidence,
+      annotatedImageUrl: summary.annotatedImageUrl,
+      isLocal: true,
+      clientUuid: summary.clientUuid,
+      localImagePath: summary.localImagePath,
+      syncStatus: summary.syncStatus,
+      breakdown: (resultData['breakdown'] as Map? ?? const {}).map(
+        (key, value) => MapEntry(key.toString(), _toInt(value)),
+      ),
+      detections: (resultData['detections'] as List? ?? const [])
+          .whereType<Map>()
+          .map(
+            (item) => AnalysisDetection.fromJson(
+              Map<String, dynamic>.from(item),
+            ),
+          )
+          .toList(),
+      processingTimeMs: _toDouble(resultData['processing_time_ms']),
+    );
+  }
+}
+
+Map<String, dynamic> _extractResultData(String? resultJson) {
+  if (resultJson == null || resultJson.isEmpty) {
+    return {};
+  }
+
+  try {
+    final decoded = jsonDecode(resultJson);
+
+    if (decoded is Map) {
+      final data = decoded['data'];
+
+      if (data is Map) {
+        return Map<String, dynamic>.from(data);
+      }
+    }
+  } catch (_) {}
+
+  return {};
 }
 
 int _toInt(dynamic value) {
