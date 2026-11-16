@@ -3,6 +3,7 @@ class PendingSample {
   final String clientUuid;
   final String sampleId;
   final String imagePath;
+  final String? originalImagePath;
   final String filename;
   final String status;
   final DateTime createdAt;
@@ -16,6 +17,7 @@ class PendingSample {
     required this.clientUuid,
     required this.sampleId,
     required this.imagePath,
+    this.originalImagePath,
     required this.filename,
     required this.status,
     required this.createdAt,
@@ -36,6 +38,7 @@ class PendingSample {
       'client_uuid': clientUuid,
       'sample_id': sampleId,
       'image_path': imagePath,
+      'original_image_path': originalImagePath,
       'filename': filename,
       'status': status,
       'created_at': createdAt.toIso8601String(),
@@ -52,6 +55,7 @@ class PendingSample {
       clientUuid: map['client_uuid'] as String,
       sampleId: map['sample_id'] as String,
       imagePath: map['image_path'] as String,
+      originalImagePath: map['original_image_path'] as String?,
       filename: map['filename'] as String,
       status: map['status'] as String,
       createdAt: DateTime.parse(map['created_at'] as String),

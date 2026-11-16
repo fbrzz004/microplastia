@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'analysis_service.dart';
 import 'image_storage_service.dart';
@@ -10,7 +11,9 @@ class SyncService {
   static final SyncService instance = SyncService._();
 
   final AnalysisService _analysisService = AnalysisService();
+
   final LocalDatabaseService _database = LocalDatabaseService.instance;
+
   final ImageStorageService _imageStorage = ImageStorageService.instance;
 
   bool _isSyncing = false;
@@ -36,24 +39,51 @@ class SyncService {
               clientUuid: sample.clientUuid,
               error: 'No se encontró la imagen anotada.',
             );
+
             continue;
           }
 
-          final decoded = jsonDecode(sample.resultJson ?? '');
+          final decoded = jsonDecode(
+            sample.resultJson ?? '',
+          );
 
           if (decoded is! Map || decoded['data'] is! Map) {
-            throw Exception('No se encontró el resultado TFLite local.');
+            throw Exception(
+              'No se encontró el resultado TFLite local.',
+            );
           }
 
-          final payload = Map<String, dynamic>.from(decoded['data'] as Map);
+          final payload = Map<String, dynamic>.from(
+            decoded['data'] as Map,
+          );
 
-          await _database.markAsSyncing(sample.clientUuid);
+          await _database.markAsSyncing(
+            sample.clientUuid,
+          );
 
-          final bytes = await _imageStorage.readImage(sample.imagePath);
+          final annotatedBytes = await _imageStorage.readImage(
+            sample.imagePath,
+          );
+
+          var originalBytes = <int>[];
+
+          if (sample.originalImagePath != null &&
+              await _imageStorage.imageExists(
+                sample.originalImagePath!,
+              )) {
+            originalBytes = await _imageStorage.readImage(
+              sample.originalImagePath!,
+            );
+          }
 
           final response = await _analysisService.guardarPayloadMovil(
             payload: payload,
-            annotatedBytes: bytes,
+            annotatedBytes: annotatedBytes,
+            originalBytes: originalBytes.isEmpty
+                ? null
+                : Uint8List.fromList(
+                    originalBytes,
+                  ),
             sampleId: sample.sampleId,
             clientUuid: sample.clientUuid,
             isOfflineSync: true,
@@ -66,7 +96,10 @@ class SyncService {
         } catch (e) {
           await _database.markAsError(
             clientUuid: sample.clientUuid,
-            error: e.toString().replaceFirst('Exception: ', ''),
+            error: e.toString().replaceFirst(
+                  'Exception: ',
+                  '',
+                ),
           );
         }
       }

@@ -9,7 +9,7 @@ class LocalDatabaseService {
   static final LocalDatabaseService instance = LocalDatabaseService._();
 
   static const String _databaseName = 'microplastia.db';
-  static const int _databaseVersion = 1;
+  static const int _databaseVersion = 2;
   static const String _tableName = 'pending_samples';
 
   Database? _database;
@@ -26,18 +26,23 @@ class LocalDatabaseService {
       path,
       version: _databaseVersion,
       onCreate: _onCreate,
+      onUpgrade: _onUpgrade,
     );
 
     return _database!;
   }
 
-  Future<void> _onCreate(Database db, int version) async {
+  Future<void> _onCreate(
+    Database db,
+    int version,
+  ) async {
     await db.execute(
       'CREATE TABLE $_tableName ('
       'id INTEGER PRIMARY KEY AUTOINCREMENT, '
       'client_uuid TEXT NOT NULL UNIQUE, '
       'sample_id TEXT NOT NULL, '
       'image_path TEXT NOT NULL, '
+      'original_image_path TEXT, '
       'filename TEXT NOT NULL, '
       'status TEXT NOT NULL, '
       'created_at TEXT NOT NULL, '
@@ -59,7 +64,22 @@ class LocalDatabaseService {
     );
   }
 
-  Future<int> insertSample(PendingSample sample) async {
+  Future<void> _onUpgrade(
+    Database db,
+    int oldVersion,
+    int newVersion,
+  ) async {
+    if (oldVersion < 2) {
+      await db.execute(
+        'ALTER TABLE $_tableName '
+        'ADD COLUMN original_image_path TEXT',
+      );
+    }
+  }
+
+  Future<int> insertSample(
+    PendingSample sample,
+  ) async {
     final db = await database;
 
     return db.insert(
@@ -69,7 +89,9 @@ class LocalDatabaseService {
     );
   }
 
-  Future<PendingSample?> getSampleByUuid(String clientUuid) async {
+  Future<PendingSample?> getSampleByUuid(
+    String clientUuid,
+  ) async {
     final db = await database;
 
     final rows = await db.query(
@@ -144,7 +166,9 @@ class LocalDatabaseService {
     );
   }
 
-  Future<void> markAsSyncing(String clientUuid) async {
+  Future<void> markAsSyncing(
+    String clientUuid,
+  ) async {
     final sample = await getSampleByUuid(clientUuid);
 
     await updateStatus(

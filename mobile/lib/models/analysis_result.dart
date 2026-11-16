@@ -15,13 +15,19 @@ class AnalysisDetection {
     required this.box,
   });
 
-  factory AnalysisDetection.fromJson(Map<String, dynamic> json) {
+  factory AnalysisDetection.fromJson(
+    Map<String, dynamic> json,
+  ) {
     return AnalysisDetection(
       classId: _toInt(json['class_id']),
       className: json['class_name']?.toString() ?? '',
-      confidence: _toDouble(json['confidence']),
+      confidence: _toDouble(
+        json['confidence'],
+      ),
       box: (json['box'] as List? ?? const [])
-          .map((value) => _toDouble(value))
+          .map(
+            (value) => _toDouble(value),
+          )
           .toList(),
     );
   }
@@ -33,6 +39,8 @@ class AnalysisSummary {
   final DateTime? createdAt;
   final int totalParticles;
   final double confidence;
+
+  final String? originalImageUrl;
   final String? annotatedImageUrl;
 
   final bool isLocal;
@@ -46,6 +54,7 @@ class AnalysisSummary {
     required this.createdAt,
     required this.totalParticles,
     required this.confidence,
+    this.originalImageUrl,
     required this.annotatedImageUrl,
     this.isLocal = false,
     this.clientUuid,
@@ -53,20 +62,36 @@ class AnalysisSummary {
     this.syncStatus,
   });
 
-  factory AnalysisSummary.fromJson(Map<String, dynamic> json) {
+  factory AnalysisSummary.fromJson(
+    Map<String, dynamic> json,
+  ) {
     return AnalysisSummary(
       id: _toInt(json['id']),
       sampleId: json['sample_id']?.toString() ?? '',
-      createdAt: DateTime.tryParse(json['created_at']?.toString() ?? ''),
-      totalParticles: _toInt(json['total_particles']),
-      confidence: _toDouble(json['confidence']),
+      createdAt: DateTime.tryParse(
+        json['created_at']?.toString() ?? '',
+      ),
+      totalParticles: _toInt(
+        json['total_particles'],
+      ),
+      confidence: _toDouble(
+        json['confidence'],
+      ),
+      originalImageUrl: json['original_image_url']?.toString(),
       annotatedImageUrl: json['annotated_image_url']?.toString(),
     );
   }
 
-  factory AnalysisSummary.fromPendingSample(PendingSample sample) {
-    final resultData = _extractResultData(sample.resultJson);
-    final serverId = _toInt(resultData['result_id']);
+  factory AnalysisSummary.fromPendingSample(
+    PendingSample sample,
+  ) {
+    final resultData = _extractResultData(
+      sample.resultJson,
+    );
+
+    final serverId = _toInt(
+      resultData['result_id'],
+    );
 
     return AnalysisSummary(
       id: sample.status == PendingSample.synced && serverId > 0
@@ -74,8 +99,13 @@ class AnalysisSummary {
           : -(sample.id ?? 1),
       sampleId: sample.sampleId,
       createdAt: sample.createdAt,
-      totalParticles: _toInt(resultData['total_particles']),
-      confidence: _toDouble(resultData['confidence']),
+      totalParticles: _toInt(
+        resultData['total_particles'],
+      ),
+      confidence: _toDouble(
+        resultData['confidence'],
+      ),
+      originalImageUrl: resultData['original_image_url']?.toString(),
       annotatedImageUrl: resultData['annotated_image_url']?.toString(),
       isLocal: true,
       clientUuid: sample.clientUuid,
@@ -95,7 +125,9 @@ class AnalysisSummary {
 
 class AnalysisDetail extends AnalysisSummary {
   final Map<String, int> breakdown;
+
   final List<AnalysisDetection> detections;
+
   final double processingTimeMs;
 
   const AnalysisDetail({
@@ -104,6 +136,7 @@ class AnalysisDetail extends AnalysisSummary {
     required super.createdAt,
     required super.totalParticles,
     required super.confidence,
+    super.originalImageUrl,
     required super.annotatedImageUrl,
     super.isLocal,
     super.clientUuid,
@@ -114,8 +147,12 @@ class AnalysisDetail extends AnalysisSummary {
     required this.processingTimeMs,
   });
 
-  factory AnalysisDetail.fromJson(Map<String, dynamic> json) {
-    final summary = AnalysisSummary.fromJson(json);
+  factory AnalysisDetail.fromJson(
+    Map<String, dynamic> json,
+  ) {
+    final summary = AnalysisSummary.fromJson(
+      json,
+    );
 
     return AnalysisDetail(
       id: summary.id,
@@ -123,25 +160,40 @@ class AnalysisDetail extends AnalysisSummary {
       createdAt: summary.createdAt,
       totalParticles: summary.totalParticles,
       confidence: summary.confidence,
+      originalImageUrl: summary.originalImageUrl,
       annotatedImageUrl: summary.annotatedImageUrl,
       breakdown: (json['breakdown'] as Map? ?? const {}).map(
-        (key, value) => MapEntry(key.toString(), _toInt(value)),
+        (key, value) => MapEntry(
+          key.toString(),
+          _toInt(value),
+        ),
       ),
       detections: (json['detections'] as List? ?? const [])
           .whereType<Map>()
           .map(
             (item) => AnalysisDetection.fromJson(
-              Map<String, dynamic>.from(item),
+              Map<String, dynamic>.from(
+                item,
+              ),
             ),
           )
           .toList(),
-      processingTimeMs: _toDouble(json['processing_time_ms']),
+      processingTimeMs: _toDouble(
+        json['processing_time_ms'],
+      ),
     );
   }
 
-  factory AnalysisDetail.fromPendingSample(PendingSample sample) {
-    final resultData = _extractResultData(sample.resultJson);
-    final summary = AnalysisSummary.fromPendingSample(sample);
+  factory AnalysisDetail.fromPendingSample(
+    PendingSample sample,
+  ) {
+    final resultData = _extractResultData(
+      sample.resultJson,
+    );
+
+    final summary = AnalysisSummary.fromPendingSample(
+      sample,
+    );
 
     return AnalysisDetail(
       id: summary.id,
@@ -149,28 +201,38 @@ class AnalysisDetail extends AnalysisSummary {
       createdAt: summary.createdAt,
       totalParticles: summary.totalParticles,
       confidence: summary.confidence,
+      originalImageUrl: summary.originalImageUrl,
       annotatedImageUrl: summary.annotatedImageUrl,
       isLocal: true,
       clientUuid: summary.clientUuid,
       localImagePath: summary.localImagePath,
       syncStatus: summary.syncStatus,
       breakdown: (resultData['breakdown'] as Map? ?? const {}).map(
-        (key, value) => MapEntry(key.toString(), _toInt(value)),
+        (key, value) => MapEntry(
+          key.toString(),
+          _toInt(value),
+        ),
       ),
       detections: (resultData['detections'] as List? ?? const [])
           .whereType<Map>()
           .map(
             (item) => AnalysisDetection.fromJson(
-              Map<String, dynamic>.from(item),
+              Map<String, dynamic>.from(
+                item,
+              ),
             ),
           )
           .toList(),
-      processingTimeMs: _toDouble(resultData['processing_time_ms']),
+      processingTimeMs: _toDouble(
+        resultData['processing_time_ms'],
+      ),
     );
   }
 }
 
-Map<String, dynamic> _extractResultData(String? resultJson) {
+Map<String, dynamic> _extractResultData(
+  String? resultJson,
+) {
   if (resultJson == null || resultJson.isEmpty) {
     return {};
   }
@@ -191,13 +253,33 @@ Map<String, dynamic> _extractResultData(String? resultJson) {
 }
 
 int _toInt(dynamic value) {
-  if (value is int) return value;
-  if (value is num) return value.round();
-  return int.tryParse(value?.toString() ?? '') ?? 0;
+  if (value is int) {
+    return value;
+  }
+
+  if (value is num) {
+    return value.round();
+  }
+
+  return int.tryParse(
+        value?.toString() ?? '',
+      ) ??
+      0;
 }
 
-double _toDouble(dynamic value) {
-  if (value is double) return value;
-  if (value is num) return value.toDouble();
-  return double.tryParse(value?.toString() ?? '') ?? 0;
+double _toDouble(
+  dynamic value,
+) {
+  if (value is double) {
+    return value;
+  }
+
+  if (value is num) {
+    return value.toDouble();
+  }
+
+  return double.tryParse(
+        value?.toString() ?? '',
+      ) ??
+      0;
 }

@@ -12,13 +12,18 @@ import 'tflite_inference_service.dart';
 class AnalysisService {
   static const Duration _timeout = Duration(seconds: 30);
 
-  Map<String, dynamic> crearPayload(TfliteAnalysisResult resultado) {
+  Map<String, dynamic> crearPayload(
+    TfliteAnalysisResult resultado,
+  ) {
     return {
       'total_particles': resultado.totalParticles,
       'confidence': resultado.averageConfidence,
       'breakdown': resultado.breakdown,
-      'detections':
-          resultado.detections.map((detection) => detection.toJson()).toList(),
+      'detections': resultado.detections
+          .map(
+            (detection) => detection.toJson(),
+          )
+          .toList(),
       'processing_time_ms': resultado.inferenceTimeMs,
       'modelo_nombre': resultado.modelName,
       'modelo_version': resultado.modelVersion,
@@ -29,6 +34,7 @@ class AnalysisService {
   Future<Map<String, dynamic>> guardarAnalisisMovil({
     required TfliteAnalysisResult resultado,
     required Uint8List annotatedBytes,
+    Uint8List? originalBytes,
     String? sampleId,
     String? clientUuid,
     bool isOfflineSync = false,
@@ -36,6 +42,7 @@ class AnalysisService {
     return guardarPayloadMovil(
       payload: crearPayload(resultado),
       annotatedBytes: annotatedBytes,
+      originalBytes: originalBytes,
       sampleId: sampleId,
       clientUuid: clientUuid,
       isOfflineSync: isOfflineSync,
@@ -45,6 +52,7 @@ class AnalysisService {
   Future<Map<String, dynamic>> guardarPayloadMovil({
     required Map<String, dynamic> payload,
     required Uint8List annotatedBytes,
+    Uint8List? originalBytes,
     String? sampleId,
     String? clientUuid,
     bool isOfflineSync = false,
@@ -52,7 +60,9 @@ class AnalysisService {
     final token = await SessionService.getValidToken();
 
     if (token == null || token.isEmpty) {
-      throw Exception('Tu sesión expiró. Inicia sesión de nuevo.');
+      throw Exception(
+        'Tu sesión expiró. Inicia sesión de nuevo.',
+      );
     }
 
     final requestPayload = Map<String, dynamic>.from(payload);
@@ -69,10 +79,14 @@ class AnalysisService {
 
     final request = http.MultipartRequest(
       'POST',
-      Uri.parse('${AppConfig.apiBaseUrl}/api/v1/analyze/mobile'),
+      Uri.parse(
+        '${AppConfig.apiBaseUrl}'
+        '/api/v1/analyze/mobile',
+      ),
     );
 
     request.headers['Authorization'] = 'Bearer $token';
+
     request.fields['payload'] = jsonEncode(requestPayload);
 
     request.files.add(
@@ -84,25 +98,41 @@ class AnalysisService {
       ),
     );
 
+    if (originalBytes != null && originalBytes.isNotEmpty) {
+      request.files.add(
+        http.MultipartFile.fromBytes(
+          'original_file',
+          originalBytes,
+          filename: 'original.jpg',
+          contentType: MediaType('image', 'jpeg'),
+        ),
+      );
+    }
+
     late http.StreamedResponse response;
 
     try {
       response = await request.send().timeout(_timeout);
     } on TimeoutException {
       throw Exception(
-        'El servidor no respondió. La muestra quedó guardada.',
+        'El servidor no respondió. '
+        'La muestra quedó guardada.',
       );
     } catch (_) {
       throw Exception(
-        'No se pudo conectar con el servidor. La muestra quedó guardada.',
+        'No se pudo conectar con el servidor. '
+        'La muestra quedó guardada.',
       );
     }
 
     final body = await response.stream.bytesToString().timeout(_timeout);
+
     final decoded = jsonDecode(body);
 
     if (decoded is! Map<String, dynamic>) {
-      throw Exception('Formato de respuesta inesperado.');
+      throw Exception(
+        'Formato de respuesta inesperado.',
+      );
     }
 
     if (response.statusCode < 200 || response.statusCode >= 300) {

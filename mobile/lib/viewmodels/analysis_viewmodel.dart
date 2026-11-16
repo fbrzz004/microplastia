@@ -13,21 +13,31 @@ import '../services/tflite_inference_service.dart';
 
 class AnalysisViewModel extends ChangeNotifier {
   final AnalysisService _analysisService = AnalysisService();
+
   final TfliteInferenceService _tfliteService = TfliteInferenceService();
+
   final LocalDatabaseService _database = LocalDatabaseService.instance;
+
   final ImageStorageService _imageStorage = ImageStorageService.instance;
+
   final Connectivity _connectivity = Connectivity();
 
   bool _isLoading = false;
   bool _isOfflinePending = false;
+
   String? _errorMessage;
   String? _localSampleUuid;
+
   Map<String, dynamic>? _resultado;
 
   bool get isLoading => _isLoading;
+
   bool get isOfflinePending => _isOfflinePending;
+
   String? get errorMessage => _errorMessage;
+
   String? get localSampleUuid => _localSampleUuid;
+
   Map<String, dynamic>? get resultado => _resultado;
 
   Future<bool> analizarImagen({
@@ -42,6 +52,7 @@ class AnalysisViewModel extends ChangeNotifier {
     _isOfflinePending = false;
     _errorMessage = null;
     _resultado = null;
+
     notifyListeners();
 
     try {
@@ -55,15 +66,25 @@ class AnalysisViewModel extends ChangeNotifier {
       );
 
       final uuid = const Uuid().v4();
+
       final sampleId = 'MUESTRA-${uuid.substring(0, 8).toUpperCase()}';
-      final payload = _analysisService.crearPayload(resultadoLocal);
+
+      final payload = _analysisService.crearPayload(
+        resultadoLocal,
+      );
 
       _localSampleUuid = uuid;
 
-      final imagePath = await _imageStorage.saveImage(
+      final annotatedPath = await _imageStorage.saveImage(
         bytes: annotatedBytes,
         clientUuid: uuid,
         filename: 'annotated.jpg',
+      );
+
+      final originalPath = await _imageStorage.saveImage(
+        bytes: bytes,
+        clientUuid: uuid,
+        filename: 'original.jpg',
       );
 
       final now = DateTime.now();
@@ -72,33 +93,44 @@ class AnalysisViewModel extends ChangeNotifier {
         PendingSample(
           clientUuid: uuid,
           sampleId: sampleId,
-          imagePath: imagePath,
+          imagePath: annotatedPath,
+          originalImagePath: originalPath,
           filename: 'annotated.jpg',
           status: PendingSample.pending,
           createdAt: now,
           updatedAt: now,
-          resultJson: jsonEncode({'data': payload}),
+          resultJson: jsonEncode(
+            {
+              'data': payload,
+            },
+          ),
         ),
       );
 
       final connectivity = await _connectivity.checkConnectivity();
+
       final online = connectivity.any(
         (result) => result != ConnectivityResult.none,
       );
 
       if (!online) {
         _isOfflinePending = true;
-        _errorMessage =
-            'Análisis realizado localmente. Quedó pendiente de sincronización.';
+
+        _errorMessage = 'Análisis realizado localmente. '
+            'Quedó pendiente de sincronización.';
+
         return true;
       }
 
-      await _database.markAsSyncing(uuid);
+      await _database.markAsSyncing(
+        uuid,
+      );
 
       try {
         final response = await _analysisService.guardarAnalisisMovil(
           resultado: resultadoLocal,
           annotatedBytes: annotatedBytes,
+          originalBytes: bytes,
           sampleId: sampleId,
           clientUuid: uuid,
         );
@@ -109,6 +141,7 @@ class AnalysisViewModel extends ChangeNotifier {
         );
 
         _resultado = response;
+
         return true;
       } catch (_) {
         await _database.markAsError(
@@ -117,15 +150,22 @@ class AnalysisViewModel extends ChangeNotifier {
         );
 
         _isOfflinePending = true;
-        _errorMessage =
-            'Análisis realizado localmente. Quedó pendiente de sincronización.';
+
+        _errorMessage = 'Análisis realizado localmente. '
+            'Quedó pendiente de sincronización.';
+
         return true;
       }
     } catch (e) {
-      _errorMessage = e.toString().replaceFirst('Exception: ', '');
+      _errorMessage = e.toString().replaceFirst(
+            'Exception: ',
+            '',
+          );
+
       return false;
     } finally {
       _isLoading = false;
+
       notifyListeners();
     }
   }
@@ -135,12 +175,14 @@ class AnalysisViewModel extends ChangeNotifier {
     _errorMessage = null;
     _isOfflinePending = false;
     _localSampleUuid = null;
+
     notifyListeners();
   }
 
   @override
   void dispose() {
     _tfliteService.close();
+
     super.dispose();
   }
 }

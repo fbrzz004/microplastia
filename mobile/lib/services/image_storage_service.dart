@@ -13,6 +13,7 @@ class ImageStorageService {
 
   Future<Directory> _getImageDirectory() async {
     final appDirectory = await getApplicationDocumentsDirectory();
+
     final imageDirectory = Directory(
       p.join(appDirectory.path, _folderName),
     );
@@ -34,15 +35,25 @@ class ImageStorageService {
     }
 
     final directory = await _getImageDirectory();
+
     final extension = p.extension(filename).toLowerCase().isEmpty
         ? '.jpg'
         : p.extension(filename).toLowerCase();
 
+    final baseName = p.basenameWithoutExtension(filename);
+
     final file = File(
-      p.join(directory.path, '$clientUuid$extension'),
+      p.join(
+        directory.path,
+        '${clientUuid}_$baseName$extension',
+      ),
     );
 
-    await file.writeAsBytes(bytes, flush: true);
+    await file.writeAsBytes(
+      bytes,
+      flush: true,
+    );
+
     return file.path;
   }
 

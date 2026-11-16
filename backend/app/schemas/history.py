@@ -3,17 +3,20 @@ from typing import Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
-from app.schemas.analysis import DetectionItem, AnalysisData, AnalysisResponse
+from app.schemas.analysis import DetectionItem
 
 
 class HistoryItem(BaseModel):
-    """Resumen de un análisis para la lista del historial."""
+    """Resumen de un análisis para el historial."""
 
     id: int
     sample_id: str
     created_at: Optional[datetime] = None
+
     total_particles: int
     confidence: float
+
+    original_image_url: Optional[str] = None
     annotated_image_url: Optional[str] = None
 
     modelo_nombre: Optional[str] = None
@@ -22,9 +25,11 @@ class HistoryItem(BaseModel):
 
 
 class HistoryDetail(HistoryItem):
-    """Detalle completo de un análisis guardado."""
+    """Detalle completo de un análisis."""
 
-    breakdown: Dict[str, int] = Field(default_factory=dict)
+    breakdown: Dict[str, int] = Field(
+        default_factory=dict
+    )
 
     detections: List[DetectionItem] = Field(
         default_factory=list

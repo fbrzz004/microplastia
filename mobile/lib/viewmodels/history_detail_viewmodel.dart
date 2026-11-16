@@ -14,10 +14,53 @@ class HistoryDetailViewModel extends ChangeNotifier {
   AnalysisDetail? detalle;
 
   bool isLoading = false;
-
   String? errorMessage;
-
   bool sessionExpired = false;
+
+  int? selectedClassId;
+
+  bool get canFilter =>
+      detalle?.originalImageUrl != null &&
+      detalle!.originalImageUrl!.trim().isNotEmpty;
+
+  List<AnalysisDetection> get deteccionesFiltradas {
+    final actual = detalle;
+
+    if (actual == null) {
+      return const [];
+    }
+
+    if (selectedClassId == null) {
+      return actual.detections;
+    }
+
+    return actual.detections
+        .where(
+          (detection) => detection.classId == selectedClassId,
+        )
+        .toList();
+  }
+
+  void seleccionarClase(
+    int? classId,
+  ) {
+    if (!canFilter && classId != null) {
+      return;
+    }
+
+    selectedClassId = classId;
+
+    notifyListeners();
+  }
+
+  int contarClase(int classId) {
+    return detalle?.detections
+            .where(
+              (detection) => detection.classId == classId,
+            )
+            .length ??
+        0;
+  }
 
   Future<void> cargar(
     int resultId,
@@ -25,6 +68,7 @@ class HistoryDetailViewModel extends ChangeNotifier {
     isLoading = true;
     errorMessage = null;
     sessionExpired = false;
+    selectedClassId = null;
 
     notifyListeners();
 
