@@ -143,9 +143,10 @@ No hay secretos versionados. `backend/.env.example` contiene únicamente valores
 - Las etiquetas de archivo conservan las puntas retiradas: `archive/feature-historial-analisis`,
   `archive/fix-historial-esquema`.
 - El flujo de trabajo quedó documentado en `README.md`: `main` ← `dev` ← `feat/*` / `fix/*`.
-- Se dejó intacta `origin/origin/feature/continuity` (commit `0526049`, sincronización de
-  muestras sin conexión). No está contenida en `dev` y requiere revisión antes de renombrarla o
-  integrarla; eliminarla perdería trabajo no fusionado.
+- La sincronización de muestras sin conexión (`feature/continuity`) quedó integrada en `dev` y
+  en `origin/main` durante la revisión. Se conserva `origin/backup-feature-continuity-old` como
+  respaldo de una iteración anterior; puede retirarse cuando se confirme que no aporta cambios
+  únicos.
 
 ## 7. Nota de despliegue en producción
 
