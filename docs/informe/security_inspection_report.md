@@ -1,107 +1,110 @@
-# Security Inspection Report — MicroplastIA
+# Informe de inspección de seguridad — MicroplastIA
 
-- Date: 2026-11-14
-- Scope: backend (FastAPI), admin web (Angular), mobile app (Flutter), repository and Git workflow
-- Branch: `feat/security-hardening` (merged into `dev`)
-- Baseline: `main` `e4ed61c`, integration line `feature/reports` `8c75355`
+- Fecha: 14 de noviembre de 2026
+- Alcance: backend (FastAPI), panel web administrativo (Angular), aplicación móvil (Flutter), repositorio y flujo de trabajo en Git
+- Rama: `feat/security-hardening` (integrada en `dev`)
+- Línea base: `main` `e4ed61c`, línea de integración `feature/reports` `8c75355`
 
-## 1. Executive summary
+## 1. Resumen ejecutivo
 
-The project already had solid foundations: JWT validation with token-type checks, bcrypt
-password hashing, a password policy, login rate limiting keyed by a hashed email, trusted
-hosts, CORS allow-lists, security headers, MIME and image decoding validation, and
-ownership checks on history, results and reports.
+El proyecto ya contaba con bases sólidas: validación de JWT con comprobación del tipo de token,
+hash de contraseñas con bcrypt, política de contraseñas, limitación de intentos de inicio de
+sesión mediante el correo hasheado, hosts de confianza, listas de orígenes CORS, cabeceras de
+seguridad, validación de MIME y decodificación de imágenes, y verificación de propiedad en
+historial, resultados y reportes.
 
-This inspection found no committed secrets and no SQL injection or broken access-control
-path. The main gaps were configuration hardening, denial-of-service edges, a login timing
-side channel, plaintext mobile token storage, Android cleartext/backup defaults, and the
-lack of a Content Security Policy in the admin web.
+Esta inspección no encontró secretos confirmados en el repositorio ni rutas de inyección SQL o
+de control de acceso roto. Las principales brechas eran el endurecimiento de la configuración,
+algunos vectores de denegación de servicio, un canal lateral por tiempo de respuesta en el
+inicio de sesión, el almacenamiento del token móvil en texto plano, la configuración de Android
+para tráfico claro y copias de seguridad, y la ausencia de una política de seguridad de
+contenido (CSP) en el panel administrativo.
 
-All P1 findings below are fixed in this branch. Residual accepted risks are listed in
-section 5.
+Todos los hallazgos de prioridad alta y media están corregidos en esta rama. Los riesgos
+residuales aceptados se detallan en la sección 5.
 
-## 2. Findings
+## 2. Hallazgos
 
-| ID | Severity | Area | Finding | Status |
+| ID | Severidad | Área | Hallazgo | Estado |
 |---|---|---|---|---|
-| SEC-01 | High | Mobile | JWT stored in `shared_preferences` (plaintext). | Fixed: `flutter_secure_storage` with legacy migration and fallback. |
-| SEC-02 | Medium | Mobile | `android:usesCleartextTraffic="true"` in the main manifest allowed HTTP in release builds. | Fixed: HTTPS only in release; cleartext enabled only in debug/profile manifests. |
-| SEC-03 | Medium | Mobile | Android backup enabled; app data could be extracted from backups. | Fixed: `android:allowBackup="false"`. |
-| SEC-04 | Medium | Auth | Login timing differed between existing and non-existing emails, enabling account enumeration. | Fixed: always verify against a dummy bcrypt hash. |
-| SEC-05 | Medium | Auth | Passwords with many multibyte characters exceeded bcrypt's 72-byte limit and produced HTTP 500. | Fixed: UTF-8 byte-length check in the password policy. |
-| SEC-06 | Medium | Backend config | Production could start with placeholder JWT secret, localhost hosts/origins, or wildcard CORS. | Fixed: fail-fast production validation at startup. |
-| SEC-07 | Medium | Backend config | Interactive docs and OpenAPI could be enabled in production. | Fixed: docs are always disabled when `ENVIRONMENT=production`. |
-| SEC-08 | Medium | Uploads | Image dimensions were validated only after full decoding; a highly compressed image with huge dimensions could exhaust memory. | Fixed: Pillow pixel limit plus header-only dimension check before decode. |
-| SEC-09 | Low | Reports | Report filenames had only 24 bits of randomness, so public `/static/reports` URLs were guessable. | Fixed: 128-bit random filenames. |
-| SEC-10 | Low | Analysis API | Mobile analysis payload had no upper bounds for particle count, processing time, breakdown size or detection count. | Fixed: bounded fields and breakdown validator. |
-| SEC-11 | Low | Admin web | No Content Security Policy or referrer policy. | Fixed: restrictive CSP and `no-referrer` meta tags. |
-| SEC-12 | Low | Repository | Stale feature branches and mixed branch workflow. | Fixed: `dev` integration branch, documented hierarchy, stale branches retired. |
+| SEC-01 | Alta | Móvil | El JWT se guardaba en `shared_preferences` (texto plano). | Corregido: `flutter_secure_storage` con migración del token anterior y respaldo controlado. |
+| SEC-02 | Media | Móvil | `android:usesCleartextTraffic="true"` en el manifiesto principal permitía HTTP en compilaciones de producción. | Corregido: solo HTTPS en release; tráfico claro habilitado únicamente en debug/profile. |
+| SEC-03 | Media | Móvil | La copia de seguridad de Android estaba habilitada; los datos de la aplicación podían extraerse de un respaldo. | Corregido: `android:allowBackup="false"`. |
+| SEC-04 | Media | Autenticación | El tiempo de respuesta del login difería entre correos existentes e inexistentes, lo que permitía enumerar cuentas. | Corregido: se verifica siempre un hash bcrypt de referencia. |
+| SEC-05 | Media | Autenticación | Las contraseñas con muchos caracteres multibyte superaban el límite de 72 bytes de bcrypt y producían HTTP 500. | Corregido: validación de la longitud en bytes UTF-8. |
+| SEC-06 | Media | Configuración del backend | Producción podía arrancar con un secreto JWT de ejemplo, hosts/orígenes locales o CORS comodín. | Corregido: validación de producción con fallo temprano al iniciar. |
+| SEC-07 | Media | Configuración del backend | La documentación interactiva y OpenAPI podían quedar expuestas en producción. | Corregido: se deshabilitan siempre cuando `ENVIRONMENT=production`. |
+| SEC-08 | Media | Carga de archivos | Las dimensiones de la imagen se validaban después de decodificarla por completo; una imagen muy comprimida con dimensiones enormes podía agotar la memoria. | Corregido: límite de píxeles de Pillow y validación de dimensiones desde la cabecera antes de decodificar. |
+| SEC-09 | Baja | Reportes | Los nombres de los reportes tenían solo 24 bits de aleatoriedad, por lo que las URL públicas de `/static/reports` eran adivinables. | Corregido: nombres con 128 bits de aleatoriedad. |
+| SEC-10 | Baja | API de análisis | La carga útil del análisis móvil no tenía límites para el número de partículas, el tiempo de procesamiento, el tamaño del desglose ni el número de detecciones. | Corregido: campos acotados y validador del desglose. |
+| SEC-11 | Baja | Panel web | No existía Content Security Policy ni política de referencia. | Corregido: CSP restrictiva y cabecera `no-referrer`. |
+| SEC-12 | Baja | Repositorio | Ramas de funcionalidad obsoletas y un flujo de trabajo de ramas mixto. | Corregido: rama de integración `dev`, jerarquía documentada y ramas obsoletas retiradas. |
 
-## 3. Implemented controls
+## 3. Controles implementados
 
 ### Backend
 
 - `backend/app/core/config.py`
-  - `production_config_errors()` validates the JWT secret, trusted hosts and CORS origins.
-  - `docs_available` disables `/docs`, `/redoc` and `/openapi.json` in production.
+  - `production_config_errors()` valida el secreto JWT, los hosts de confianza y los orígenes CORS.
+  - `docs_available` deshabilita `/docs`, `/redoc` y `/openapi.json` en producción.
 - `backend/app/main.py`
-  - Calls `validate_production_settings()` at startup.
-  - Uses `docs_available` instead of `docs_enabled`.
+  - Ejecuta `validate_production_settings()` al iniciar.
+  - Usa `docs_available` en lugar de `docs_enabled`.
 - `backend/app/core/password_policy.py`
-  - Rejects passwords whose UTF-8 encoding exceeds 72 bytes.
+  - Rechaza contraseñas cuya codificación UTF-8 supere los 72 bytes.
 - `backend/app/core/security.py`
-  - Adds a dummy bcrypt hash for constant-work authentication failures.
+  - Añade un hash bcrypt de referencia para que los fallos de autenticación tengan un costo constante.
 - `backend/app/services/auth_service.py`
-  - Verifies the dummy hash when the email does not exist.
+  - Verifica el hash de referencia cuando el correo no existe.
 - `backend/app/core/file_validation.py`
-  - Sets `Image.MAX_IMAGE_PIXELS`.
-  - Validates width, height and pixel count from the image header before decoding.
-  - Rejects Pillow decompression bombs.
+  - Configura `Image.MAX_IMAGE_PIXELS`.
+  - Valida ancho, alto y cantidad de píxeles desde la cabecera antes de decodificar.
+  - Rechaza bombas de descompresión de Pillow.
 - `backend/app/api/v1/endpoints/analyze.py`
   - `total_particles <= 100000`
   - `processing_time_ms <= 86400000`
-  - at most 10 breakdown categories, keys up to 50 chars, values `0..100000`
-  - at most 1000 detections
+  - como máximo 10 categorías de desglose, claves de hasta 50 caracteres y valores entre `0` y `100000`
+  - como máximo 1000 detecciones
 - `backend/app/services/report_service.py`
-  - Report filenames use a full `uuid4().hex` (128 bits).
+  - Los nombres de los reportes usan un `uuid4().hex` completo (128 bits).
 
-### Admin web
+### Panel web administrativo
 
 - `admin_web/src/index.html`
-  - CSP restricts scripts, styles, images, frames and network connections.
+  - La CSP restringe scripts, estilos, imágenes, marcos y conexiones de red.
   - `Referrer-Policy: no-referrer`.
 
-### Mobile
+### Móvil
 
 - `mobile/lib/services/session_service.dart`
-  - JWT stored with `flutter_secure_storage`.
-  - One-time migration from `shared_preferences`.
-  - Fallback only when secure storage is unavailable, with a 1-second timeout.
-  - Logout clears both stores.
+  - El JWT se guarda con `flutter_secure_storage`.
+  - Migración única desde `shared_preferences`.
+  - Respaldo solo cuando el almacenamiento seguro no está disponible, con un tiempo de espera de 1 segundo.
+  - El cierre de sesión limpia ambos almacenes.
 - `mobile/android/app/src/main/AndroidManifest.xml`
   - `usesCleartextTraffic="false"`, `allowBackup="false"`.
 - `mobile/android/app/src/debug/AndroidManifest.xml`,
   `mobile/android/app/src/profile/AndroidManifest.xml`
-  - Cleartext allowed only for local development builds.
+  - Tráfico claro permitido únicamente en compilaciones locales de desarrollo.
 
-## 4. Verification
+## 4. Verificación
 
-| Suite | Result |
+| Suite | Resultado |
 |---|---|
-| Backend (`pytest`, SQLite test database) | 56 passed, 1 known SQLite-only failure (`test_login_rate_limit`, timezone-naive datetime) |
-| Admin web (`npm test`) | 17 passed |
-| Admin web (`npm run build`) | Build OK, pre-existing CSS budget warnings only |
-| Mobile (`flutter analyze`) | No issues |
-| Mobile (`flutter test`) | 12 passed |
+| Backend (`pytest`, base SQLite de pruebas) | 56 superadas, 1 fallo conocido exclusivo de SQLite (`test_login_rate_limit`, fecha sin zona horaria) |
+| Panel web (`npm test`) | 17 superadas |
+| Panel web (`npm run build`) | Compilación correcta; solo advertencias previas de presupuesto de CSS |
+| Móvil (`flutter analyze`) | Sin incidencias |
+| Móvil (`flutter test`) | 12 superadas |
 
-Backend command:
+Comando del backend:
 
 ```bash
 cd backend
 DATABASE_URL=sqlite:////tmp/opencode/micro_test.db ./venv/bin/python -m pytest -q
 ```
 
-Admin commands:
+Comandos del panel web:
 
 ```bash
 cd admin_web
@@ -109,7 +112,7 @@ npm test -- --watch=false
 npm run build
 ```
 
-Mobile commands (Flutter SDK 3.47.7):
+Comandos del móvil (Flutter SDK 3.47.7):
 
 ```bash
 cd mobile
@@ -117,41 +120,40 @@ flutter analyze
 flutter test
 ```
 
-## 5. Residual risks and recommendations
+## 5. Riesgos residuales y recomendaciones
 
-| Risk | Current mitigation | Recommendation |
+| Riesgo | Mitigación actual | Recomendación |
 |---|---|---|
-| `/static/uploads`, `/static/detections` and `/static/reports` are publicly readable capability URLs. | 128-bit random filenames, no directory listing, `Cache-Control: no-store`. | Move reports and sample images behind an authenticated endpoint or short-lived signed URLs if they become sensitive. |
-| Admin JWT remains in `localStorage`/`sessionStorage`. | CSP limits script sources; short 60-minute token. | Consider HttpOnly, Secure, SameSite cookies with CSRF protection. |
-| Mobile WebSocket sends the JWT in the query string. | HTTPS/WSS only; short-lived token. | Switch to an `Authorization` header or a first-message handshake. |
-| Release APK is signed with the debug key. | None. | Create a private release keystore, keep it out of Git, and configure signing in CI or locally. |
-| Login rate limiting is per email, not per IP. | Account-based lockout, hashed identifiers. | Add a per-IP limit at the reverse proxy or application layer. |
-| No database migration tool in use at startup (`create_all`). | Schema is created from models. | Adopt Alembic migrations for production changes. |
-| Local `backend/.env` contains a development secret. | File is ignored and was never tracked. | Keep it local; rotate if it ever leaves the machine. |
+| `/static/uploads`, `/static/detections` y `/static/reports` son URL de capacidad de lectura pública. | Nombres aleatorios de 128 bits, sin listado de directorios y con `Cache-Control: no-store`. | Mover reportes e imágenes de muestras detrás de un endpoint autenticado o de URL firmadas de corta duración si pasan a ser sensibles. |
+| El JWT del panel administrativo permanece en `localStorage`/`sessionStorage`. | La CSP limita las fuentes de script; el token dura 60 minutos. | Evaluar cookies HttpOnly, Secure y SameSite con protección CSRF. |
+| El WebSocket móvil envía el JWT en la cadena de consulta. | Solo HTTPS/WSS y token de corta duración. | Cambiar a cabecera `Authorization` o a un saludo autenticado en el primer mensaje. |
+| El APK de release se firma con la clave de depuración. | Ninguna. | Crear un almacén de claves privado de release, mantenerlo fuera de Git y configurar la firma en CI o de forma local. |
+| La limitación de intentos de login es por correo, no por IP. | Bloqueo por cuenta e identificadores hasheados. | Añadir un límite por IP en el proxy inverso o en la aplicación. |
+| No se usa una herramienta de migraciones al iniciar (`create_all`). | El esquema se crea desde los modelos. | Adoptar migraciones de Alembic para los cambios de producción. |
+| El archivo local `backend/.env` contiene un secreto de desarrollo. | Está ignorado y nunca fue versionado. | Mantenerlo local y rotarlo si alguna vez sale de la máquina. |
 
-No secrets are committed. `backend/.env.example` contains placeholders only.
+No hay secretos versionados. `backend/.env.example` contiene únicamente valores de ejemplo.
 
-## 6. Git branch consolidation
+## 6. Consolidación de ramas
 
-- `dev` created from `main` and fast-forwarded to `feature/reports`.
-- `main` was not modified locally; `origin/main` advanced independently during the inspection
-  and is contained in `dev`.
-- Retired branches after verification: `feature/reports`, `feature/historial-analisis`,
+- `dev` se creó desde `main` y avanzó por avance rápido hasta `feature/reports`.
+- `main` no se modificó localmente; `origin/main` avanzó de forma independiente durante la inspección y está contenido en `dev`.
+- Ramas retiradas tras la verificación: `feature/reports`, `feature/historial-analisis`,
   `fix/historial-esquema`, `origin/feature/flutter-views`, `origin/origin/feature/profile-flow`.
-- Archive tags preserve the retired tips: `archive/feature-historial-analisis`,
+- Las etiquetas de archivo conservan las puntas retiradas: `archive/feature-historial-analisis`,
   `archive/fix-historial-esquema`.
-- Workflow documented in `README.md`: `main` ← `dev` ← `feat/*` / `fix/*`.
-- Left intact: `origin/origin/feature/continuity` (commit `0526049`, offline sample
-  synchronization). It is not contained in `dev` and needs review before it is renamed or
-  merged; deleting it would lose unmerged work.
+- El flujo de trabajo quedó documentado en `README.md`: `main` ← `dev` ← `feat/*` / `fix/*`.
+- Se dejó intacta `origin/origin/feature/continuity` (commit `0526049`, sincronización de
+  muestras sin conexión). No está contenida en `dev` y requiere revisión antes de renombrarla o
+  integrarla; eliminarla perdería trabajo no fusionado.
 
-## 7. Production deployment note
+## 7. Nota de despliegue en producción
 
-With the new startup guard, production will refuse to start unless:
+Con la nueva validación de arranque, producción no iniciará a menos que:
 
-- `SECRET_KEY` is a random value of at least 32 characters (not the example placeholder).
-- `ALLOWED_HOSTS` lists the real API host.
-- `ALLOWED_ORIGINS` lists real HTTPS origins only.
+- `SECRET_KEY` sea un valor aleatorio de al menos 32 caracteres (no el marcador de ejemplo).
+- `ALLOWED_HOSTS` incluya el host real de la API.
+- `ALLOWED_ORIGINS` incluya únicamente orígenes HTTPS reales.
 
-This is intentional fail-fast behavior. Update the production environment before deploying
-this branch.
+Este comportamiento de fallo temprano es intencional. Actualizar el entorno de producción antes
+de desplegar esta rama.
