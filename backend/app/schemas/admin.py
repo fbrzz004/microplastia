@@ -17,6 +17,7 @@ class UsuarioAdminResponse(BaseModel):
 
 class MuestraAdminResponse(BaseModel):
     id_muestra: int
+    id_resultado: int | None = None
     codigo: str
     usuario: str
     correo: EmailStr
@@ -58,3 +59,19 @@ class DashboardAdminResponse(BaseModel):
     # Solo se activa cuando existe un problema real
     # con una versión fallback antigua.
     alerta_fallback: bool
+
+class AdminReportRequest(BaseModel):
+    result_ids: list[int]
+
+
+class AdminReportData(BaseModel):
+    filename: str
+    report_url: str
+    total_analyses: int
+    generated_at: datetime
+
+
+class AdminReportResponse(BaseModel):
+    success: bool = True
+    message: str
+    data: AdminReportData

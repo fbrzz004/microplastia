@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends
+from datetime import datetime, timezone
+
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -10,10 +12,17 @@ from app.models.sample import Muestra
 from app.models.result import ResultadoAnalisis
 from app.models.model_ai import ModeloIA
 
+from app.services.admin_report_service import (
+    generate_admin_report,
+)
+
 from app.schemas.admin import (
     UsuarioAdminResponse,
     MuestraAdminResponse,
     DashboardAdminResponse,
+    AdminReportRequest,
+    AdminReportData,
+    AdminReportResponse,
 )
 from app.services.notification_service import (
     create_system_notifications_for_admins,
@@ -629,6 +638,12 @@ def listar_muestras(
                     muestra.id_muestra
                 ),
 
+                id_resultado=(
+                    resultado.id_resultado
+                    if resultado
+                    else None
+                ),
+
                 codigo=(
                     codigo_muestra
                 ),
@@ -688,3 +703,119 @@ def listar_muestras(
         )
 
     return respuesta
+
+
+# ==========================================
+# REPORTE ADMINISTRATIVO
+# ==========================================
+
+@router.post(
+    "/reporte",
+    response_model=AdminReportResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def generar_reporte_admin(
+    data: AdminReportRequest,
+    db: Session = Depends(get_db),
+    admin: Usuario = Depends(
+        get_current_admin
+    ),
+):
+
+    result_ids = list(
+        dict.fromkeys(
+            data.result_ids
+        )
+    )
+
+    if not result_ids:
+        raise HTTPException(
+            status_code=(
+                status.HTTP_400_BAD_REQUEST
+            ),
+            detail=(
+                "Debes seleccionar al menos "
+                "un análisis."
+            ),
+        )
+
+    if len(result_ids) > 200:
+        raise HTTPException(
+            status_code=(
+                status.HTTP_400_BAD_REQUEST
+            ),
+            detail=(
+                "El reporte admite como máximo "
+                "200 análisis."
+            ),
+        )
+
+    registros = (
+        db.query(
+            ResultadoAnalisis,
+            Muestra,
+            Usuario,
+        )
+        .join(
+            Muestra,
+            ResultadoAnalisis.id_muestra
+            == Muestra.id_muestra,
+        )
+        .join(
+            Usuario,
+            Muestra.id_usuario
+            == Usuario.id_usuario,
+        )
+        .filter(
+            ResultadoAnalisis.id_resultado.in_(
+                result_ids
+            ),
+            Usuario.rol == "usuario",
+        )
+        .all()
+    )
+
+    if len(registros) != len(result_ids):
+        raise HTTPException(
+            status_code=(
+                status.HTTP_404_NOT_FOUND
+            ),
+            detail=(
+                "Uno o más análisis no existen."
+            ),
+        )
+
+    orden = {
+        result_id: index
+        for index, result_id
+        in enumerate(result_ids)
+    }
+
+    registros.sort(
+        key=lambda item:
+            orden[
+                item[0].id_resultado
+            ]
+    )
+
+    path = generate_admin_report(
+        registros,
+        admin,
+    )
+
+    return AdminReportResponse(
+        message=(
+            "Reporte administrativo generado "
+            f"con {len(registros)} análisis."
+        ),
+        data=AdminReportData(
+            filename=path.name,
+            report_url=(
+                f"/static/reports/{path.name}"
+            ),
+            total_analyses=len(registros),
+            generated_at=datetime.now(
+                timezone.utc
+            ),
+        ),
+    )

@@ -32,8 +32,14 @@ from app.schemas.analysis import (
     AnalysisResponse,
     DetectionItem,
 )
-from app.services.history_service import save_analysis
-from app.services.notification_events import notification_events
+from app.services.history_service import (
+    get_existing_analysis,
+    save_analysis,
+    to_analysis_data,
+)
+from app.services.notification_events import (
+    notification_events,
+)
 from app.services.notification_service import (
     create_analysis_notifications,
     to_notification_payload,
@@ -43,15 +49,10 @@ from app.services.storage_service import (
     storage_service,
 )
 
-
 router = APIRouter(
-    tags=["Analysis"]
+    tags=["Analysis"],
 )
 
-
-# ==========================================================
-# MODELOS PARA RESULTADOS GENERADOS EN EL MÓVIL
-# ==========================================================
 
 class MobileDetection(BaseModel):
     class_id: int = Field(
@@ -77,6 +78,13 @@ class MobileDetection(BaseModel):
 
 class MobileAnalysisRequest(BaseModel):
     sample_id: Optional[str] = None
+
+    client_uuid: Optional[str] = Field(
+        default=None,
+        max_length=36,
+    )
+
+    is_offline_sync: bool = False
 
     total_particles: int = Field(
         ge=0,
@@ -105,7 +113,9 @@ class MobileAnalysisRequest(BaseModel):
 
     breakdown: Dict[str, int]
 
-    detections: List[MobileDetection] = Field(
+    detections: List[
+        MobileDetection
+    ] = Field(
         max_length=1000,
     )
 
@@ -120,22 +130,18 @@ class MobileAnalysisRequest(BaseModel):
         cls,
         value: Dict[str, int],
     ) -> Dict[str, int]:
-
         if len(value) > 10:
-
             raise ValueError(
                 "El desglose tiene demasiadas categorías."
             )
 
         for key, count in value.items():
-
             if (
                 not key
                 or len(key) > 50
                 or count < 0
                 or count > 100_000
             ):
-
                 raise ValueError(
                     "El desglose contiene valores no válidos."
                 )
@@ -143,9 +149,43 @@ class MobileAnalysisRequest(BaseModel):
         return value
 
 
-# ==========================================================
-# ANÁLISIS MÓVIL
-# ==========================================================
+def _decode_uploaded_image(
+    raw_bytes: bytes,
+    description: str,
+) -> np.ndarray:
+    if len(raw_bytes) > 10 * 1024 * 1024:
+        raise HTTPException(
+            status_code=(
+                status.HTTP_413_REQUEST_ENTITY_TOO_LARGE
+            ),
+            detail=(
+                f"La {description} supera "
+                "el tamaño máximo permitido."
+            ),
+        )
+
+    image_array = np.frombuffer(
+        raw_bytes,
+        dtype=np.uint8,
+    )
+
+    image_bgr = cv2.imdecode(
+        image_array,
+        cv2.IMREAD_COLOR,
+    )
+
+    if image_bgr is None:
+        raise HTTPException(
+            status_code=(
+                status.HTTP_400_BAD_REQUEST
+            ),
+            detail=(
+                f"La {description} no es válida."
+            ),
+        )
+
+    return image_bgr
+
 
 @router.post(
     "/analyze/mobile",
@@ -153,48 +193,25 @@ class MobileAnalysisRequest(BaseModel):
 )
 async def save_mobile_analysis(
     payload: str = Form(...),
-
     annotated_file: UploadFile | None = File(
-        default=None,
+        default=None
     ),
-
+    original_file: UploadFile | None = File(
+        default=None
+    ),
     db: Session = Depends(get_db),
-
     usuario: Usuario = Depends(
         get_current_user
     ),
 ):
-    """
-    Recibe resultados generados por TFLite/LiteRT en Flutter.
-
-    El backend NO ejecuta modelos de inteligencia artificial.
-
-    El backend únicamente:
-    - valida los resultados
-    - almacena la imagen anotada
-    - guarda el análisis en la base de datos
-    - permite consultarlo desde historial y reportes
-    """
-
-    # ------------------------------------------------------
-    # PAYLOAD JSON
-    # ------------------------------------------------------
-
     try:
-        payload_json = json.loads(
-            payload
-        )
-
         mobile_result = (
             MobileAnalysisRequest
             .model_validate(
-                payload_json
+                json.loads(payload)
             )
         )
 
-        # --------------------------------------------------
-        # DIAGNÓSTICO: DATOS RECIBIDOS DESDE FLUTTER
-        # --------------------------------------------------
     except (
         json.JSONDecodeError,
         ValueError,
@@ -204,26 +221,38 @@ async def save_mobile_analysis(
                 status.HTTP_400_BAD_REQUEST
             ),
             detail=(
-                "Los resultados enviados "
-                "por el dispositivo no son válidos."
+                "Los resultados enviados por "
+                "el dispositivo no son válidos."
             ),
         ) from exc
 
+    if mobile_result.client_uuid:
+        existente = get_existing_analysis(
+            db=db,
+            user_id=usuario.id_usuario,
+            client_uuid=(
+                mobile_result.client_uuid
+            ),
+        )
 
-    # ------------------------------------------------------
-    # SAMPLE ID
-    # ------------------------------------------------------
+        if existente:
+            return AnalysisResponse(
+                success=True,
+                message=(
+                    "Esta muestra ya fue "
+                    "sincronizada anteriormente."
+                ),
+                data=to_analysis_data(
+                    existente
+                ),
+            )
 
-    sample_id = (
-        mobile_result.sample_id
-    )
+    sample_id = mobile_result.sample_id
 
     if sample_id:
         try:
-            sample_id = (
-                validate_sample_id(
-                    sample_id
-                )
+            sample_id = validate_sample_id(
+                sample_id
             )
 
         except InvalidUploadError as exc:
@@ -236,18 +265,15 @@ async def save_mobile_analysis(
 
     if not sample_id:
         sample_id = (
-            "MUESTRA-"
+            f"MUESTRA-"
             f"{uuid.uuid4().hex[:8].upper()}"
         )
 
-
-    # ------------------------------------------------------
-    # CONSISTENCIA DE DETECCIONES
-    # ------------------------------------------------------
-
     if (
         mobile_result.total_particles
-        != len(mobile_result.detections)
+        != len(
+            mobile_result.detections
+        )
     ):
         raise HTTPException(
             status_code=(
@@ -259,12 +285,42 @@ async def save_mobile_analysis(
             ),
         )
 
-
-    # ------------------------------------------------------
-    # IMAGEN ANOTADA
-    # ------------------------------------------------------
-
+    original_image_url = None
     annotated_image_url = None
+
+    if original_file is not None:
+        original_bytes = (
+            await original_file.read()
+        )
+
+        await original_file.close()
+
+        if original_bytes:
+            image_bgr = (
+                _decode_uploaded_image(
+                    original_bytes,
+                    "imagen original",
+                )
+            )
+
+            try:
+                original_image_url = (
+                    storage_service
+                    .save_original_image(
+                        image_bgr
+                    )
+                )
+
+            except StorageError as exc:
+                raise HTTPException(
+                    status_code=(
+                        status.HTTP_503_SERVICE_UNAVAILABLE
+                    ),
+                    detail=(
+                        "No se pudo almacenar "
+                        "la imagen original."
+                    ),
+                ) from exc
 
     if annotated_file is not None:
         annotated_bytes = (
@@ -274,40 +330,12 @@ async def save_mobile_analysis(
         await annotated_file.close()
 
         if annotated_bytes:
-            if (
-                len(annotated_bytes)
-                > 10 * 1024 * 1024
-            ):
-                raise HTTPException(
-                    status_code=(
-                        status.HTTP_413_REQUEST_ENTITY_TOO_LARGE
-                    ),
-                    detail=(
-                        "La imagen anotada supera "
-                        "el tamaño máximo permitido."
-                    ),
+            image_bgr = (
+                _decode_uploaded_image(
+                    annotated_bytes,
+                    "imagen anotada",
                 )
-
-            image_array = np.frombuffer(
-                annotated_bytes,
-                dtype=np.uint8,
             )
-
-            image_bgr = cv2.imdecode(
-                image_array,
-                cv2.IMREAD_COLOR,
-            )
-
-            if image_bgr is None:
-                raise HTTPException(
-                    status_code=(
-                        status.HTTP_400_BAD_REQUEST
-                    ),
-                    detail=(
-                        "La imagen anotada "
-                        "no es válida."
-                    ),
-                )
 
             try:
                 annotated_image_url = (
@@ -328,142 +356,114 @@ async def save_mobile_analysis(
                     ),
                 ) from exc
 
-
-    # ------------------------------------------------------
-    # DETECCIONES
-    # ------------------------------------------------------
-
     detections = [
         DetectionItem(
-            class_id=detection.class_id,
-
-            class_name=(
-                detection.class_name
-            ),
-
+            class_id=d.class_id,
+            class_name=d.class_name,
             confidence=round(
-                detection.confidence,
+                d.confidence,
                 4,
             ),
-
             box=[
                 round(
                     float(value),
                     2,
                 )
-                for value
-                in detection.box
+                for value in d.box
             ],
         )
-
-        for detection
+        for d
         in mobile_result.detections
     ]
 
-
-    # ------------------------------------------------------
-    # RESULTADO
-    # ------------------------------------------------------
-
     result = AnalysisData(
         sample_id=sample_id,
-
         total_particles=(
             mobile_result.total_particles
         ),
-
         confidence=round(
             mobile_result.confidence,
             4,
         ),
-
         breakdown=dict(
             mobile_result.breakdown
         ),
-
         detections=detections,
-
         processing_time_ms=round(
-            mobile_result.processing_time_ms,
+            mobile_result
+            .processing_time_ms,
             2,
         ),
-
+        original_image_url=(
+            original_image_url
+        ),
         annotated_image_url=(
             annotated_image_url
         ),
-
         modelo_nombre=(
             mobile_result.modelo_nombre
         ),
-
         modelo_version=(
             mobile_result.modelo_version
         ),
-
         modelo_origen=(
             mobile_result.modelo_origen
         ),
     )
 
-
-    # ------------------------------------------------------
-    # DIAGNÓSTICO: ANALYSIS DATA
-    # ------------------------------------------------------
-
-
-    # ------------------------------------------------------
-    # BASE DE DATOS
-    # ------------------------------------------------------
-
     registro = save_analysis(
-        db,
+        db=db,
         result=result,
         user_id=usuario.id_usuario,
+        client_uuid=(
+            mobile_result.client_uuid
+        ),
+        is_offline_sync=(
+            mobile_result.is_offline_sync
+        ),
     )
 
     result.result_id = (
         registro.id_resultado
     )
 
-
-    # ------------------------------------------------------
-    # NOTIFICACIÓN
-    # ------------------------------------------------------
-
-    notifications = create_analysis_notifications(
-        db,
-        user_id=usuario.id_usuario,
-        result_id=registro.id_resultado,
-        sample_id=result.sample_id,
-        total_particles=result.total_particles,
-        confidence=result.confidence,
+    notifications = (
+        create_analysis_notifications(
+            db,
+            user_id=usuario.id_usuario,
+            result_id=(
+                registro.id_resultado
+            ),
+            sample_id=result.sample_id,
+            total_particles=(
+                result.total_particles
+            ),
+            confidence=(
+                result.confidence
+            ),
+        )
     )
 
     for notification in notifications:
         notification_events.publish(
             notification.id_usuario,
             {
-                "event": "notification.created",
-                "data": to_notification_payload(
-                    notification
-                ),
+                "event":
+                    "notification.created",
+                "data":
+                    to_notification_payload(
+                        notification
+                    ),
             },
         )
 
-
-    # ------------------------------------------------------
-    # RESPUESTA
-    # ------------------------------------------------------
-
     return AnalysisResponse(
         success=True,
-
         message=(
             "Análisis móvil guardado. "
             f"Se detectaron "
             f"{result.total_particles} "
             "partículas."
         ),
-
         data=result,
     )

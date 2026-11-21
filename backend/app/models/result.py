@@ -18,11 +18,7 @@ class ResultadoAnalisis(Base):
 
     __tablename__ = "resultado_analisis"
 
-    id_resultado = Column(
-        Integer,
-        primary_key=True,
-        index=True,
-    )
+    id_resultado = Column(Integer, primary_key=True, index=True)
 
     id_muestra = Column(
         Integer,
@@ -31,63 +27,16 @@ class ResultadoAnalisis(Base):
         index=True,
     )
 
-    total_particulas = Column(
-        Integer,
-        nullable=False,
-        default=0,
-    )
+    total_particulas = Column(Integer, nullable=False, default=0)
+    confianza_promedio = Column(Float, nullable=False, default=0.0)
+    desglose = Column(JSON, nullable=False, default=dict)
+    detecciones = Column(JSON, nullable=False, default=list)
+    tiempo_procesamiento_ms = Column(Float, nullable=False, default=0.0)
+    imagen_anotada_url = Column(String(255), nullable=True)
 
-    confianza_promedio = Column(
-        Float,
-        nullable=False,
-        default=0.0,
-    )
-
-    desglose = Column(
-        JSON,
-        nullable=False,
-        default=dict,
-    )
-
-    detecciones = Column(
-        JSON,
-        nullable=False,
-        default=list,
-    )
-
-    tiempo_procesamiento_ms = Column(
-        Float,
-        nullable=False,
-        default=0.0,
-    )
-
-    imagen_anotada_url = Column(
-        String(255),
-        nullable=True,
-    )
-
-    # ---------------------------------------------------------
-    # TRAZABILIDAD DEL MODELO DE IA
-    # ---------------------------------------------------------
-
-    modelo_nombre = Column(
-        String(100),
-        nullable=True,
-    )
-
-    modelo_version = Column(
-        String(30),
-        nullable=True,
-    )
-
-    modelo_origen = Column(
-        String(30),
-        nullable=True,
-    )
-
-    # ---------------------------------------------------------
-    # FECHA
-    # ---------------------------------------------------------
+    modelo_nombre = Column(String(100), nullable=True)
+    modelo_version = Column(String(30), nullable=True)
+    modelo_origen = Column(String(30), nullable=True)
 
     fecha_creacion = Column(
         DateTime(timezone=True),
@@ -95,9 +44,10 @@ class ResultadoAnalisis(Base):
         nullable=False,
     )
 
-    # ---------------------------------------------------------
-    # RELACIONES
-    # ---------------------------------------------------------
+    fecha_sincronizacion = Column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
 
     muestra = relationship(
         "Muestra",

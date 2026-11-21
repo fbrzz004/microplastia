@@ -49,6 +49,12 @@ class Muestra(Base):
         nullable=True
     )
 
+    client_uuid = Column(
+        String(36),
+        nullable=True,
+        index=True
+    )
+
     resultados = relationship(
         "ResultadoAnalisis",
         back_populates="muestra",

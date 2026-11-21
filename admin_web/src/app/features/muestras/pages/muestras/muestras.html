@@ -29,12 +29,16 @@
 
         <input
           type="text"
-          placeholder="Buscar por ID, usuario o fecha"
+          placeholder="Buscar por ID, usuario, correo o fecha"
+          [(ngModel)]="busqueda"
         />
 
       </div>
 
-      <select class="status-filter">
+      <select
+        class="status-filter"
+        [(ngModel)]="estadoFiltro"
+      >
         <option value="">
           Todos los estados
         </option>
@@ -49,6 +53,85 @@
       </select>
 
     </div>
+
+
+    <div class="date-filter-row">
+
+      <div class="date-filter-group">
+
+        <label for="fechaDesde">
+          Desde
+        </label>
+
+        <input
+          id="fechaDesde"
+          type="date"
+          [(ngModel)]="fechaDesde"
+        />
+
+      </div>
+
+
+      <div class="date-filter-group">
+
+        <label for="fechaHasta">
+          Hasta
+        </label>
+
+        <input
+          id="fechaHasta"
+          type="date"
+          [(ngModel)]="fechaHasta"
+        />
+
+      </div>
+
+
+      <button
+        type="button"
+        class="report-button"
+        [disabled]="
+          generandoReporte
+          || rangoFechasInvalido
+          || analisisFiltradosReporte.length === 0
+        "
+        (click)="generarReporte()"
+      >
+        {{
+          generandoReporte
+            ? 'Generando...'
+            : 'Generar reporte PDF'
+        }}
+      </button>
+
+
+      @if (
+        busqueda
+        || estadoFiltro
+        || fechaDesde
+        || fechaHasta
+      ) {
+
+        <button
+          type="button"
+          class="clear-filter-button"
+          (click)="limpiarFiltros()"
+        >
+          Limpiar filtros
+        </button>
+
+      }
+
+    </div>
+
+
+    @if (rangoFechasInvalido) {
+
+      <div class="filter-warning">
+        La fecha "Desde" no puede ser posterior a la fecha "Hasta".
+      </div>
+
+    }
 
 
     @if (cargando) {
@@ -69,7 +152,42 @@
     }
 
 
+    @if (errorReporte) {
+
+      <div class="report-message error">
+        {{ errorReporte }}
+      </div>
+
+    }
+
+
+    @if (mensajeReporte) {
+
+      <div class="report-message success">
+        {{ mensajeReporte }}
+      </div>
+
+    }
+
+
     @if (!cargando && !error) {
+
+      <div class="filter-summary">
+
+        <span>
+          Mostrando
+          {{ muestrasFiltradas.length }}
+          de
+          {{ muestras.length }}
+          muestras
+        </span>
+
+        <span>
+          {{ analisisFiltradosReporte.length }}
+          análisis disponibles para reporte
+        </span>
+
+      </div>
 
       <div class="table-wrapper">
 
@@ -92,7 +210,10 @@
 
           <tbody>
 
-            @for (muestra of muestras; track muestra.id_muestra) {
+            @for (
+              muestra of muestrasFiltradas;
+              track muestra.id_muestra
+            ) {
 
               <tr>
 
@@ -239,7 +360,7 @@
             }
 
 
-            @if (muestras.length === 0) {
+            @if (muestrasFiltradas.length === 0) {
 
               <tr>
 
@@ -247,7 +368,7 @@
                   colspan="7"
                   class="empty-message"
                 >
-                  No hay muestras registradas.
+                  No se encontraron muestras con esos filtros.
                 </td>
 
               </tr>

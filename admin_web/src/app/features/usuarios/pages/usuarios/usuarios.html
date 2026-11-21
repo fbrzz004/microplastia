@@ -26,10 +26,40 @@
 
         <input
           type="text"
-          placeholder="Buscar por nombre o correo"
+          placeholder="Buscar por ID, nombre o correo"
+          [(ngModel)]="busqueda"
         />
 
       </div>
+
+      <select
+        class="status-filter"
+        [(ngModel)]="estadoFiltro"
+      >
+        <option value="">
+          Todos los estados
+        </option>
+
+        <option value="Activo">
+          Activos
+        </option>
+
+        <option value="Inactivo">
+          Inactivos
+        </option>
+      </select>
+
+      @if (busqueda || estadoFiltro) {
+
+        <button
+          type="button"
+          class="clear-filter-button"
+          (click)="limpiarFiltros()"
+        >
+          Limpiar
+        </button>
+
+      }
 
     </div>
 
@@ -51,6 +81,14 @@
 
     @if (!cargando && !error) {
 
+      <div class="filter-summary">
+        Mostrando
+        {{ usuariosFiltrados.length }}
+        de
+        {{ usuarios.length }}
+        usuarios
+      </div>
+
       <div class="table-wrapper">
 
         <table>
@@ -69,7 +107,10 @@
 
           <tbody>
 
-            @for (usuario of usuarios; track usuario.id_usuario) {
+            @for (
+              usuario of usuariosFiltrados;
+              track usuario.id_usuario
+            ) {
 
               <tr>
 
@@ -141,7 +182,7 @@
 
             }
 
-            @if (usuarios.length === 0) {
+            @if (usuariosFiltrados.length === 0) {
 
               <tr>
 
@@ -149,7 +190,7 @@
                   colspan="5"
                   class="empty-message"
                 >
-                  No hay usuarios registrados.
+                  No se encontraron usuarios con esos filtros.
                 </td>
 
               </tr>

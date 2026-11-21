@@ -196,3 +196,116 @@
   }
 
 }
+
+/* =========================
+   MODAL CERRAR SESIÓN
+========================= */
+
+.logout-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(15, 23, 42, 0.48);
+  backdrop-filter: blur(3px);
+  z-index: 3000;
+}
+
+.logout-modal {
+  width: 100%;
+  max-width: 390px;
+  box-sizing: border-box;
+  padding: 28px;
+  background: #ffffff;
+  border: 1px solid #e3e9f1;
+  border-radius: 18px;
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.22);
+  text-align: center;
+}
+
+.logout-modal-icon {
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 16px;
+  background: #eef4ff;
+  color: #1871e4;
+  border-radius: 14px;
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.logout-modal h2 {
+  margin: 0;
+  color: #111825;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.logout-modal p {
+  margin: 10px 0 24px;
+  color: #667085;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.logout-modal-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.modal-button {
+  flex: 1;
+  height: 42px;
+  border-radius: 11px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    transform 0.15s ease;
+}
+
+.modal-button:active {
+  transform: scale(0.98);
+}
+
+.cancel-button {
+  background: #ffffff;
+  color: #475467;
+  border: 1px solid #dfe6ef;
+}
+
+.cancel-button:hover {
+  background: #f8fafc;
+  border-color: #cfd8e3;
+}
+
+.confirm-button {
+  background: #1871e4;
+  color: #ffffff;
+  border: 1px solid #1871e4;
+}
+
+.confirm-button:hover {
+  background: #1264cd;
+  border-color: #1264cd;
+}
+
+@media (max-width: 480px) {
+
+  .logout-modal {
+    padding: 22px;
+  }
+
+  .logout-modal-actions {
+    flex-direction: column-reverse;
+  }
+
+}
+

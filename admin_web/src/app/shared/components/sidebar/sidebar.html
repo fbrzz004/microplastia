@@ -38,7 +38,7 @@
     <button
       class="logout-button"
       type="button"
-      (click)="cerrarSesion()"
+      (click)="solicitarCerrarSesion()"
     >
       <span class="logout-icon">↪</span>
       <span>Cerrar sesión</span>
@@ -47,3 +47,58 @@
   </div>
 
 </aside>
+
+
+@if (mostrarConfirmacionSalida) {
+
+  <div
+    class="logout-modal-backdrop"
+    (click)="cancelarCerrarSesion()"
+  >
+
+    <div
+      class="logout-modal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="logout-modal-title"
+      (click)="$event.stopPropagation()"
+    >
+
+      <div class="logout-modal-icon">
+        ↪
+      </div>
+
+      <h2 id="logout-modal-title">
+        ¿Cerrar sesión?
+      </h2>
+
+      <p>
+        ¿Estás seguro de que quieres cerrar sesión
+        del panel administrativo?
+      </p>
+
+      <div class="logout-modal-actions">
+
+        <button
+          type="button"
+          class="modal-button cancel-button"
+          (click)="cancelarCerrarSesion()"
+        >
+          Cancelar
+        </button>
+
+        <button
+          type="button"
+          class="modal-button confirm-button"
+          (click)="confirmarCerrarSesion()"
+        >
+          Cerrar sesión
+        </button>
+
+      </div>
+
+    </div>
+
+  </div>
+
+}
